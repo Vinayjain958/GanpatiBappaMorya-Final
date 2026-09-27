@@ -12,14 +12,16 @@ import {
   ShieldCheck,
   Star,
   User,
+  UsersRound,
 } from "lucide-react";
-import type { Experience } from "@/types/experience";
+import type { Experience, ExperienceRatingSummary, ReviewItem } from "@/types/experience";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 import { LazyMapSurface as MapSurface } from "@/components/common/LazyMapSurface";
 import { DemoDataBadge } from "@/components/ui/DemoDataBadge";
 import { FeedbackControls } from "@/components/experience/FeedbackControls";
+import { WriteReviewForm } from "@/components/experience/WriteReviewForm";
 import { ImageAttribution } from "@/components/experience/ImageAttribution";
 import { ExperienceImageView } from "@/components/experience/ExperienceImageView";
 import { PersonalizationBadge } from "@/components/ui/PersonalizationBadge";
@@ -61,6 +63,16 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
   const { status: geoStatus, coordinate: origin, request: requestLocation } = useUserLocation();
   const [route, setRoute] = useState<RouteResponse | null>(null);
   const [routeStatus, setRouteStatus] = useState<"idle" | "loading" | "error">("idle");
+  const isCommunityAdded = experience.sourceType === "traveler_submission";
+  const [reviews, setReviews] = useState<ReviewItem[]>(experience.reviews ?? []);
+  const [ratingSummary, setRatingSummary] = useState<ExperienceRatingSummary | null>(
+    experience.ratingSummary ?? null,
+  );
+
+  function handleReviewSubmitted(review: ReviewItem, summary: ExperienceRatingSummary) {
+    setReviews((current) => [review, ...current]);
+    setRatingSummary(summary);
+  }
 
   const distanceKm = origin
     ? Math.round(
@@ -127,16 +139,23 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
           <section className="rounded-3xl border border-line bg-surface p-5 shadow-soft sm:p-6">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="accent">{experience.categoryLabel}</Badge>
-              <Badge tone={experience.provider.verified ? "success" : "neutral"}>
-                {experience.provider.verified ? (
-                  <>
-                    <ShieldCheck className="size-3" aria-hidden="true" />
-                    Verified provider
-                  </>
-                ) : (
-                  "Unverified provider"
-                )}
-              </Badge>
+              {isCommunityAdded ? (
+                <Badge tone="highlight">
+                  <UsersRound className="size-3" aria-hidden="true" />
+                  Community added
+                </Badge>
+              ) : (
+                <Badge tone={experience.provider.verified ? "success" : "neutral"}>
+                  {experience.provider.verified ? (
+                    <>
+                      <ShieldCheck className="size-3" aria-hidden="true" />
+                      Verified provider
+                    </>
+                  ) : (
+                    "Unverified provider"
+                  )}
+                </Badge>
+              )}
             </div>
 
             <h1 className="mt-4 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
@@ -144,7 +163,11 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
             </h1>
 
             <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-ink-muted">by {experience.provider.name}</p>
+              <p className="text-sm text-ink-muted">
+                {isCommunityAdded
+                  ? "Shared by a LocaLens traveler"
+                  : `by ${experience.provider.name}`}
+              </p>
               <FeedbackControls experienceId={experience.id} />
             </div>
 
@@ -171,10 +194,12 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
 
             <span className="inline-flex items-center gap-2 rounded-full bg-surface-raised px-3.5 py-2 text-sm text-ink-muted">
               <Star className="size-4 shrink-0 fill-highlight text-highlight" aria-hidden="true" />
-              {experience.rating != null
-                ? `${experience.rating} (${experience.reviewCount ?? 0} reviews)`
-                : "No ratings yet"}
-              {experience.isSynthetic || experience.ratingSummary?.isSynthetic ? (
+              {ratingSummary && ratingSummary.averageRating != null
+                ? `${ratingSummary.averageRating.toFixed(1)} (${ratingSummary.reviewCount} reviews)`
+                : experience.rating != null
+                  ? `${experience.rating} (${experience.reviewCount ?? 0} reviews)`
+                  : "No ratings yet"}
+              {experience.isSynthetic || ratingSummary?.isSynthetic ? (
                 <span
                   className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-ink-subtle ring-1 ring-inset ring-line"
                   title="Synthetic Demo Rating"
@@ -395,17 +420,17 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
                     Ratings &amp; Traveler Reviews
                   </h2>
                 </div>
-                {experience.isSynthetic || experience.ratingSummary?.isSynthetic ? (
+                {experience.isSynthetic || ratingSummary?.isSynthetic ? (
                   <DemoDataBadge label="Synthetic Demo Rating" />
                 ) : null}
               </div>
 
-              {experience.ratingSummary ? (
+              {ratingSummary && ratingSummary.averageRating != null ? (
                 <div className="grid gap-6 rounded-2xl bg-surface-raised/60 p-5 sm:grid-cols-[200px_minmax(0,1fr)] sm:items-center">
                   <div className="text-center sm:border-r sm:border-line sm:pr-6 sm:text-left">
                     <div className="text-4xl font-extrabold tracking-tight text-ink">
-                    {experience.ratingSummary.averageRating != null
-  ? experience.ratingSummary.averageRating.toFixed(1)
+                    {ratingSummary.averageRating != null
+  ? ratingSummary.averageRating.toFixed(1)
   : "No ratings"}
                     </div>
                     <div className="mt-1 flex justify-center gap-1 sm:justify-start">
@@ -413,7 +438,7 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
                         <Star
                           key={star}
                           className={`size-4 ${
-                            star <= Math.round(experience.ratingSummary!.averageRating)
+                            star <= Math.round(ratingSummary.averageRating!)
                               ? "fill-highlight text-highlight"
                               : "text-line"
                           }`}
@@ -422,9 +447,9 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
                       ))}
                     </div>
                     <p className="mt-1.5 text-xs text-ink-muted">
-                      Based on {experience.ratingSummary.reviewCount} reviews
+                      Based on {ratingSummary.reviewCount} reviews
                     </p>
-                    {experience.ratingSummary.isSynthetic ? (
+                    {ratingSummary.isSynthetic ? (
                       <p className="mt-0.5 text-[10px] text-ink-subtle">
                         (Synthetic demonstration data)
                       </p>
@@ -433,8 +458,8 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
 
                   <div className="space-y-1.5">
                     {[5, 4, 3, 2, 1].map((star) => {
-                      const count = experience.ratingSummary?.distribution[star] ?? 0;
-                      const total = experience.ratingSummary?.reviewCount || 1;
+                      const count = ratingSummary.distribution[star] ?? 0;
+                      const total = ratingSummary.reviewCount || 1;
                       const pct = Math.round((count / total) * 100);
                       return (
                         <div key={star} className="flex items-center gap-2 text-xs">
@@ -453,19 +478,25 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
                     })}
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <p className="rounded-2xl bg-surface-raised/60 p-5 text-sm text-ink-muted">
+                  No ratings yet — be the first to review.
+                </p>
+              )}
 
-              {experience.reviews && experience.reviews.length > 0 ? (
+              <WriteReviewForm experienceId={experience.id} onSubmitted={handleReviewSubmitted} />
+
+              {reviews.length > 0 ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-ink">Sample Reviews</h3>
+                    <h3 className="text-sm font-semibold text-ink">Recent reviews</h3>
                     <span className="text-xs text-ink-subtle">
-                      Showing {experience.reviews.length} recent reviews
+                      Showing {reviews.length} recent reviews
                     </span>
                   </div>
 
                   <div className="space-y-3">
-                    {experience.reviews.map((rev) => (
+                    {reviews.map((rev) => (
                       <div
                         key={rev.id}
                         className="rounded-2xl border border-line bg-surface-raised/40 p-4 space-y-2"
@@ -526,10 +557,14 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
             <CardBody className="space-y-5 p-5 sm:p-6">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-3xl font-semibold tracking-tight text-ink">
-                  {experience.priceInr === 0 ? "Free" : `₹${experience.priceInr}`}
+                  {experience.isPriceUnknown
+                    ? "Not listed"
+                    : experience.priceInr === 0 ? "Free" : `₹${experience.priceInr}`}
                 </span>
                 <span className="text-right text-xs text-ink-subtle">
-                  {experience.isPriceEstimated ? "estimated · per person" : "per person"}
+                  {experience.isPriceUnknown
+                    ? null
+                    : experience.isPriceEstimated ? "estimated · per person" : "per person"}
                 </span>
               </div>
 

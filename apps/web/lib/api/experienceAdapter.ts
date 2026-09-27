@@ -1,5 +1,12 @@
-import type { ApiExperienceDetail, ApiExperienceSummary, ApiOpeningHourWindow, ApiRankedExperienceItem } from "@/types/api";
-import type { Experience } from "@/types/experience";
+import type {
+  ApiExperienceDetail,
+  ApiExperienceReviewSummary,
+  ApiExperienceSummary,
+  ApiOpeningHourWindow,
+  ApiRankedExperienceItem,
+  ApiRatingSummary,
+} from "@/types/api";
+import type { Experience, ExperienceRatingSummary, ReviewItem } from "@/types/experience";
 import { haversineKm } from "@/lib/geo/haversine";
 
 /** Reference point used only when no real query origin is available (e.g.
@@ -85,6 +92,29 @@ function imageFromSummary(api: ApiExperienceSummary): Experience["image"] {
   };
 }
 
+export function mapApiReview(r: ApiExperienceReviewSummary): ReviewItem {
+  return {
+    id: r.id,
+    rating: r.rating_value,
+    title: r.title,
+    body: r.body,
+    author: r.author_display_name,
+    reviewedAt: r.reviewed_at,
+    isSynthetic: r.is_synthetic,
+  };
+}
+
+export function mapApiRatingSummary(summary: ApiRatingSummary): ExperienceRatingSummary {
+  return {
+    averageRating: summary.average_rating,
+    reviewCount: summary.review_count,
+    distribution: Object.fromEntries(
+      Object.entries(summary.rating_distribution).map(([k, v]) => [parseInt(k, 10), v]),
+    ),
+    isSynthetic: summary.is_synthetic,
+  };
+}
+
 function priceFromSummary(api: ApiExperienceSummary): number {
   if (api.price != null) return api.price;
   if (api.minimum_price != null) return api.minimum_price;
@@ -144,6 +174,7 @@ export function mapApiExperienceToUi(
     travelTimeSource: api.travel_time_source,
     durationMinutes: api.duration_minutes,
     priceInr: priceFromSummary(api),
+    isPriceUnknown: api.price == null && api.minimum_price == null && api.price_type !== "free",
     isPriceEstimated: api.is_price_estimated,
     rating: api.rating,
     reviewCount: api.review_count,
@@ -183,32 +214,11 @@ export function mapApiExperienceToUi(
         }))
       : undefined,
     isAvailabilitySynthetic: detail?.availability_slots?.some((s) => s.is_synthetic) ?? false,
-    reviews: detail?.reviews
-      ? detail.reviews.map((r) => ({
-          id: r.id,
-          rating: r.rating_value,
-          title: r.title,
-          body: r.body,
-          author: r.author_display_name,
-          reviewedAt: r.reviewed_at,
-          isSynthetic: r.is_synthetic,
-        }))
-      : undefined,
-    ratingSummary: detail?.rating_summary
-      ? {
-          averageRating: detail.rating_summary.average_rating,
-          reviewCount: detail.rating_summary.review_count,
-          distribution: Object.fromEntries(
-            Object.entries(detail.rating_summary.rating_distribution).map(([k, v]) => [
-              parseInt(k, 10),
-              v,
-            ]),
-          ),
-          isSynthetic: detail.rating_summary.is_synthetic,
-        }
-      : null,
+    reviews: detail?.reviews ? detail.reviews.map(mapApiReview) : undefined,
+    ratingSummary: detail?.rating_summary ? mapApiRatingSummary(detail.rating_summary) : null,
     highlights: [],
     isSynthetic: api.is_synthetic,
+    sourceType: api.source_type ?? undefined,
     matchSignals: ranked?.match_signals,
     personalized: ranked?.personalized,
   };

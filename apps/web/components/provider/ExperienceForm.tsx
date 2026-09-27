@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Search } from "lucide-react";
+import { Crosshair, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import { listCategories, type ApiCategory } from "@/lib/api/categories";
 import { useLocationSearch } from "@/hooks/useLocationSearch";
+import { useUserLocation } from "@/hooks/useUserLocation";
+import { reverseGeocode } from "@/lib/api/location";
+import { ExperiencePhotoUploader } from "@/components/contribution/ExperiencePhotoUploader";
 import type {
   ExperienceCreateInput,
   ExperienceUpdateInput,
@@ -129,12 +132,18 @@ export function ExperienceForm({
 }: {
   mode: "create" | "edit";
   initialValues: ExperienceFormValues;
-  onSubmit: (values: ExperienceFormValues) => void | Promise<void>;
+  /** `shopImage` is only set when the provider picked a new photo in this
+   * session — callers upload it via uploadExperienceImage() after
+   * create/update succeeds (see lib/api/experiencesWrite.ts), since the
+   * image endpoint is a separate multipart request, not part of this
+   * JSON payload. */
+  onSubmit: (values: ExperienceFormValues, shopImage: File | null) => void | Promise<void>;
   submitLabel: string;
   isSubmitting: boolean;
   error?: string | null;
 }) {
   const [values, setValues] = useState(initialValues);
+  const [shopImage, setShopImage] = useState<File | null>(null);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [placeQuery, setPlaceQuery] = useState("");
   const {
@@ -143,12 +152,52 @@ export function ExperienceForm({
     search: searchPlace,
     clear: clearPlaceResults,
   } = useLocationSearch();
+  const {
+    status: geoStatus,
+    coordinate: currentCoordinate,
+    error: geoError,
+    request: requestCurrentLocation,
+  } = useUserLocation();
+  const handledCoordinate = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     listCategories()
       .then(setCategories)
       .catch(() => setCategories([]));
   }, []);
+
+  // Label a freshly obtained browser fix via the backend reverse
+  // geocoder, same pattern as components/contribution/ExperienceLocationPicker.tsx.
+  // Browser permission is only ever requested on the explicit
+  // "Use current location" click below, never automatically on page load.
+  useEffect(() => {
+    if (!currentCoordinate || handledCoordinate.current === currentCoordinate) return;
+    handledCoordinate.current = currentCoordinate;
+    const controller = new AbortController();
+    reverseGeocode(currentCoordinate, controller.signal)
+      .then((response) => response.items[0])
+      .then((item) => {
+        if (controller.signal.aborted) return;
+        setValues((prev) => ({
+          ...prev,
+          latitude: String(currentCoordinate.lat),
+          longitude: String(currentCoordinate.lng),
+          address: item?.display_name ?? prev.address,
+          city: item?.city ?? prev.city,
+          locality: item?.locality ?? prev.locality,
+        }));
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setValues((prev) => ({
+            ...prev,
+            latitude: String(currentCoordinate.lat),
+            longitude: String(currentCoordinate.lng),
+          }));
+        }
+      });
+    return () => controller.abort();
+  }, [currentCoordinate]);
 
   function update<K extends keyof ExperienceFormValues>(
     key: K,
@@ -157,8 +206,7 @@ export function ExperienceForm({
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handlePlaceSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handlePlaceSearch() {
     if (!placeQuery.trim()) return;
     await searchPlace(placeQuery);
   }
@@ -194,7 +242,7 @@ export function ExperienceForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void onSubmit(values);
+    void onSubmit(values, shopImage);
   }
 
   return (
@@ -245,30 +293,49 @@ export function ExperienceForm({
         </label>
       </section>
 
+      <section className="space-y-3 rounded-3xl border border-line bg-surface p-5 shadow-soft sm:p-6">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold tracking-tight text-ink">Shop photo</h2>
+          <p className="text-sm text-ink-muted">
+            {mode === "edit"
+              ? "Uploading a new photo replaces the current one."
+              : "Optional — you can also add this after creating the experience."}
+          </p>
+        </div>
+        <ExperiencePhotoUploader file={shopImage} onChange={setShopImage} />
+      </section>
+
       {mode === "create" ? (
         <section className="space-y-5 rounded-3xl border border-line bg-surface p-5 shadow-soft sm:p-6">
           <h2 className="text-lg font-semibold tracking-tight text-ink">Location</h2>
 
           <div className="space-y-3 rounded-2xl bg-surface-raised p-3 sm:p-4">
-            <form onSubmit={handlePlaceSearch} className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 type="text"
                 value={placeQuery}
                 onChange={(event) => setPlaceQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault(); // don't submit the whole experience form
+                    void handlePlaceSearch();
+                  }
+                }}
                 placeholder="Search a place to fill the fields below"
                 className="h-11 min-w-0 flex-1 rounded-xl border border-line-strong bg-surface px-3.5 text-sm text-ink placeholder:text-ink-subtle outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15"
               />
               <Button
-                type="submit"
+                type="button"
                 size="sm"
                 variant="outline"
                 loading={placeSearchStatus === "loading"}
                 className="rounded-full"
+                onClick={() => void handlePlaceSearch()}
               >
                 <Search className="size-4" aria-hidden="true" />
                 Search
               </Button>
-            </form>
+            </div>
 
             {placeSearchStatus === "success" && placeResults.length > 0 ? (
               <ul className="max-w-full space-y-1 rounded-2xl border border-line bg-surface p-2 shadow-soft sm:max-w-xl">
@@ -287,6 +354,28 @@ export function ExperienceForm({
             ) : placeSearchStatus === "success" ? (
               <p className="rounded-xl bg-highlight-soft px-3 py-2 text-xs text-ink-muted">
                 No matching places found — enter coordinates manually below.
+              </p>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={requestCurrentLocation}
+              disabled={geoStatus === "loading"}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline disabled:opacity-60"
+            >
+              <Crosshair className="size-3.5" aria-hidden="true" />
+              {geoStatus === "loading" ? "Getting your location…" : "Use current location"}
+            </button>
+            {geoStatus === "denied" ? (
+              <p className="text-xs text-warning">
+                Location permission was denied — search for the location or enter coordinates
+                manually instead.
+              </p>
+            ) : null}
+            {geoStatus === "error" ? (
+              <p className="text-xs text-warning">
+                Couldn&apos;t get your location{geoError ? ` (${geoError})` : ""} — search for the
+                location or enter coordinates manually instead.
               </p>
             ) : null}
           </div>

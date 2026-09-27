@@ -6,6 +6,7 @@ from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
+from src.core.geo import bounding_box
 from src.models.category import ExperienceCategory
 from src.models.experience import Experience
 from src.models.location import Location
@@ -163,6 +164,32 @@ class ExperienceRepository:
         )
         result = await self._session.execute(query)
         return result.scalars().unique().one_or_none()
+
+    async def find_nearby_active(
+        self, *, latitude: float, longitude: float, radius_km: float
+    ) -> list[Experience]:
+        """Active experiences whose location falls in a bounding box around a
+        point — the candidate set for traveler-contribution duplicate
+        detection. Exact Haversine narrowing and name/phone/website matching
+        happen in services/contribution_duplicate.py. Schedule relations are
+        skipped: duplicate checks never read them."""
+        box = bounding_box(latitude, longitude, radius_km)
+        query = (
+            self._base_query(include_schedule=False)
+            .where(
+                Experience.status == "active",
+                Experience.location_id.in_(
+                    select(Location.id).where(
+                        Location.latitude >= box.min_lat,
+                        Location.latitude <= box.max_lat,
+                        Location.longitude >= box.min_lng,
+                        Location.longitude <= box.max_lng,
+                    )
+                ),
+            )
+        )
+        rows = (await self._session.execute(query)).scalars().unique().all()
+        return list(rows)
 
     def add(self, experience: Experience) -> None:
         self._session.add(experience)

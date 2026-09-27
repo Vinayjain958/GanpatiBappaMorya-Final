@@ -14,7 +14,8 @@ Flags:
     --limit N     Process at most N experiences.
     --refresh     Re-resolve even experiences that already have a
                   wikimedia_commons/category_fallback image (never
-                  touches provider_upload images regardless of this flag).
+                  touches provider_upload/traveler_upload images
+                  regardless of this flag).
     --dry-run     Report classifications without writing anything.
 """
 
@@ -45,6 +46,7 @@ _CONCURRENCY = 3
 
 # Classification labels for the summary report (task requirement #17/#36).
 PROVIDER_OWNED = "PROVIDER_OWNED_IMAGE"
+TRAVELER_OWNED = "TRAVELER_OWNED_IMAGE"
 WIKIMEDIA_PLACE_SPECIFIC = "WIKIMEDIA_PLACE_SPECIFIC"
 WIKIMEDIA_NEARBY = "WIKIMEDIA_NEARBY"
 WIKIMEDIA_SEMANTIC = "WIKIMEDIA_SEMANTIC"
@@ -76,6 +78,13 @@ async def _process_one(
     if experience.image_source == "provider_upload":
         stats[PROVIDER_OWNED] += 1
         rows.append({"title": experience.title, "result": PROVIDER_OWNED, "detail": experience.image_url})
+        return
+
+    # Same precedence for a traveler's own contributed photo — it is
+    # stronger evidence of the actual venue than any Wikimedia match.
+    if experience.image_source == "traveler_upload":
+        stats[TRAVELER_OWNED] += 1
+        rows.append({"title": experience.title, "result": TRAVELER_OWNED, "detail": experience.image_url})
         return
 
     already_enriched = experience.image_source in ("wikimedia_commons", "category_fallback") and experience.image_url

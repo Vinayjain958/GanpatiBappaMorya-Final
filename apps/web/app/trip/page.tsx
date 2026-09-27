@@ -6,6 +6,11 @@ import { MyItineraryList } from "@/components/trip/MyItineraryList";
 
 export const metadata: Metadata = { title: "Trips" };
 
+/**
+ * /trip — hydrates entirely from the API (GET /api/v1/itineraries) inside
+ * TripComposerSection and MyItineraryList. No mock trip data is rendered
+ * here; a refresh or a fresh login shows exactly what the database holds.
+ */
 export default function TripListPage() {
   return (
     <RequireRole role="traveler">
@@ -14,7 +19,7 @@ export default function TripListPage() {
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">Your trips</h1>
             <p className="text-sm leading-6 text-ink-muted">
-              Compose a new plan, or revisit an existing one.
+              Plan a trip from real local places, or revisit one you&apos;ve saved.
             </p>
           </div>
         </div>

@@ -56,9 +56,9 @@ export function ConversationalDiscoveryInput({
         onSubmit={handleSubmit}
         role="search"
         className={cn(
-          "flex items-center gap-2 rounded-[1.25rem] border border-line-strong bg-surface-raised p-2 shadow-soft transition-all",
-          "focus-within:border-accent focus-within:shadow-lg",
-          isHero && "sm:p-2.5",
+          "flex items-center gap-2 rounded-full border border-line-strong/80 bg-surface/95 p-1.5 shadow-float backdrop-blur-md transition-all duration-300",
+          "hover:-translate-y-0.5 hover:shadow-porcelain-hover focus-within:-translate-y-0.5 focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/10 focus-within:shadow-float",
+          isHero && "p-2 sm:p-2.5",
         )}
       >
         <label htmlFor={inputId} className="sr-only">
@@ -72,7 +72,7 @@ export function ConversationalDiscoveryInput({
           onChange={(event) => setValue(event.target.value)}
           placeholder="What are you in the mood for?"
           className={cn(
-            "min-w-0 flex-1 bg-transparent px-3 text-ink placeholder:text-ink-subtle focus:outline-none",
+            "min-w-0 flex-1 bg-transparent px-4 text-ink placeholder:text-ink-subtle focus:outline-none",
             isHero ? "text-base sm:text-lg" : "text-sm",
           )}
         />
@@ -88,9 +88,9 @@ export function ConversationalDiscoveryInput({
           type="submit"
           disabled={!value.trim()}
           aria-label="Search experiences"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-ink transition-all hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:brightness-105 hover:shadow-lg active:translate-y-0 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:translate-y-0 disabled:hover:scale-100"
         >
-          <ArrowUp className="size-4.5" aria-hidden="true" />
+          <ArrowUp className="size-4.5 stroke-[2.5]" aria-hidden="true" />
         </button>
       </form>
 
@@ -105,7 +105,7 @@ export function ConversationalDiscoveryInput({
 
       {suggestions.length ? (
         <div
-          className="mt-3 flex flex-wrap gap-2"
+          className="mt-3.5 flex flex-wrap justify-center gap-2 sm:justify-start"
           role="group"
           aria-label="Example prompts"
         >
@@ -117,7 +117,7 @@ export function ConversationalDiscoveryInput({
                 setValue(suggestion);
                 onSubmitQuery?.(suggestion);
               }}
-              className="rounded-full border border-line bg-surface-raised px-3.5 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:bg-pastel-mint/50 hover:text-ink"
+              className="rounded-full border border-line bg-surface/85 px-3.5 py-1.5 text-xs font-medium text-ink-muted shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-pastel-mint/80 hover:bg-pastel-mint/30 hover:text-ink active:scale-95"
             >
               {suggestion}
             </button>

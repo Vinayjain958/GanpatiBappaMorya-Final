@@ -14,7 +14,7 @@ import type { NextRequest } from "next/server";
  * (could be expired/revoked); the page's own AuthContext bootstrap
  * catches that case and the API rejects unauthorized calls regardless.
  */
-const PROTECTED_PREFIXES = ["/trip", "/saved", "/provider"];
+const PROTECTED_PREFIXES = ["/trip", "/saved", "/provider", "/contribute"];
 
 function hasRefreshCookie(request: NextRequest): boolean {
   return request.cookies.getAll().some((cookie) => cookie.name.endsWith("localens_refresh"));
@@ -36,5 +36,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/trip/:path*", "/saved/:path*", "/provider/:path*"],
+  matcher: ["/trip/:path*", "/saved/:path*", "/provider/:path*", "/contribute/:path*"],
 };

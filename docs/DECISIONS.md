@@ -2335,3 +2335,56 @@ versioning, locking, and revision behavior.
 - No database migration is required. External weather, route, and social
   evidence remains bounded and labeled; hypothetical values are not reported
   as live context.
+
+---
+
+## ADR-060: Travelers Can Publish Local Experiences Directly; Photos Live in the Database
+
+**Status**: Accepted
+
+**Decision**: An authenticated traveler can add a local place through
+`POST /api/v1/contributions/experiences` (UI: `/contribute/experience`). The
+submission publishes immediately as an ordinary, searchable `Experience`
+after deterministic checks only: category exists, phone looks valid, the
+photo decodes as JPEG/PNG/WebP, and rule-based duplicate detection (name
+similarity, distance, phone, website — no AI in the decision) finds no
+strong match. An uncertain match returns `POSSIBLE_DUPLICATE` so the
+traveler can confirm; a strong match returns 409 and nothing is created.
+Every published place is owned by a single placeholder provider,
+"LocaLens Community" (fixed id `00000000-0000-0000-0000-000000000001`), and
+carries `source_type="traveler_submission"`; the contributor, their
+as-submitted values and the duplicate outcome are recorded in
+`traveler_experience_contributions`. Photos are validated, EXIF-stripped
+(including GPS), downscaled to at most 1600 px, re-encoded to JPEG and stored
+in the `media_objects` table, served by `GET /api/v1/media/{key}`.
+
+**Why**: Travelers find genuinely local spots that no import covers, and a
+moderation queue would leave those contributions invisible. Photos go in the
+database because the API host's disk is wiped on restart, and the database
+is the one durable store every environment already has; serving them under
+`/api/v1` also lets the frontend's existing same-origin proxy deliver them
+without extra configuration.
+
+**Alternatives Considered**:
+- A moderation queue before publishing: deferred; the audit table keeps
+  every submission traceable, so takedown or review can be added later
+  without a schema change.
+- Local-filesystem or object storage for photos: filesystem storage loses
+  files on restart; object storage needs new credentials and a bucket, which
+  can be added later by swapping `adapters/media_storage.py`.
+- Converting the contributing traveler into a provider account: rejected;
+  a traveler is not the business owner.
+
+**Consequences**:
+- Community-added places start with no rating, no price and no opening
+  hours. The metadata and image enrichment scripts skip them, so they never
+  receive synthetic ratings/hours or a replacement photo. The UI labels them
+  "Community added" and shows "Price not listed".
+- Each photo adds roughly 100–500 KB to the database.
+- Publishing invalidates the catalog response cache so the new place
+  appears in Discover immediately. Each traveler may publish 5 places per
+  hour (in-process limiter; failed attempts do not count). An
+  `Idempotency-Key` header makes retries and double-clicks safe.
+- Provider shop photos (`POST /api/v1/experiences/{id}/image`) use the same
+  validation and database storage, with `image_source="provider_upload"`;
+  replacing a photo deletes the previous stored image.

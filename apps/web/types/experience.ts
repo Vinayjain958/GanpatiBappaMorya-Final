@@ -39,7 +39,8 @@ export interface ReviewItem {
 }
 
 export interface ExperienceRatingSummary {
-  averageRating: number;
+  /** Null when there are no reviews yet — render "No ratings yet", never 0.0. */
+  averageRating: number | null;
   reviewCount: number;
   distribution: Record<number, number>;
   isSynthetic: boolean;
@@ -89,6 +90,10 @@ export interface Experience {
   travelTimeSource: "osrm" | "haversine_estimate" | null;
   durationMinutes: number | null;
   priceInr: number;
+  /** True when the source has no price at all (e.g. a community-added
+   * place) — `priceInr` is then a 0 placeholder and must never be shown
+   * as "Free". */
+  isPriceUnknown?: boolean;
   isPriceEstimated: boolean;
   rating: number | null;
   reviewCount: number | null;
@@ -110,4 +115,8 @@ export interface Experience {
    * discovery/search results. */
   matchSignals?: string[];
   personalized?: boolean;
+  /** Catalog provenance, e.g. "traveler_submission" for places added by
+   * travelers via /contribute/experience — the UI labels those
+   * "Community added", never "Verified". */
+  sourceType?: string;
 }

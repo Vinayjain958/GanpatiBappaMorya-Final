@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Compass, LogOut, Menu, User, X } from "lucide-react";
+import { Compass, LogOut, Menu, Plus, User, X } from "lucide-react";
 import { primaryNav } from "@/lib/constants/nav";
 import { NavLink } from "@/components/navigation/NavLink";
 import { IconButton } from "@/components/ui/IconButton";
@@ -43,11 +43,11 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 lg:static">
       {/* Mobile and tablet header */}
       <div className="flex h-16 items-center justify-between border-b border-line bg-surface/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-surface/85 lg:hidden">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-ink">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-ink">
-            <Compass className="size-5" aria-hidden="true" />
+        <Link href="/" className="flex items-center gap-2.5 font-semibold text-ink">
+          <span className="flex size-9 items-center justify-center rounded-xl border border-pastel-lemon/80 bg-pastel-lemon text-ink shadow-xs">
+            <Compass className="size-4.5" aria-hidden="true" />
           </span>
-          <span className="text-[17px] tracking-tight">LocaLens</span>
+          <span className="text-[17px] font-semibold tracking-tight">LocaLens</span>
         </Link>
 
         <IconButton
@@ -61,34 +61,49 @@ export function SiteHeader() {
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-60 flex-col bg-primary px-4 py-6 text-primary-ink lg:flex">
-        <Link href="/" className="flex items-center gap-3 px-2 font-semibold">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-pastel-lemon text-ink">
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-60 flex-col border-r border-line-strong bg-primary px-4 py-6 text-primary-ink backdrop-blur-md lg:flex">
+        <Link href="/" className="group flex items-center gap-3 px-2 font-semibold">
+          <span className="flex size-10 items-center justify-center rounded-xl border border-pastel-lemon/80 bg-pastel-lemon text-ink shadow-xs transition-transform duration-200 group-hover:scale-105">
             <Compass className="size-5" aria-hidden="true" />
           </span>
-          <span className="text-lg tracking-tight">LocaLens</span>
+          <div className="flex flex-col">
+            <span className="text-lg font-semibold tracking-tight text-primary-ink">LocaLens</span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-pastel-lemon">Curated Local</span>
+          </div>
         </Link>
 
-        <nav aria-label="Primary" className="mt-10 flex flex-col gap-1.5">
+        {user?.role === "traveler" ? (
+          <Link href="/contribute/experience" className="mt-6 block">
+            <Button variant="primary" size="sm" className="w-full bg-pastel-lemon text-ink hover:brightness-105">
+              <Plus className="size-4" aria-hidden="true" />
+              Add Local Experience
+            </Button>
+          </Link>
+        ) : null}
+
+        <nav aria-label="Primary" className="mt-8 flex flex-col gap-1.5">
           {visibleNav.map((item) => (
             <NavLink
               key={item.href}
               {...item}
               activeIndicator={item.href === "/trip" && activeTripProgress?.status === "ACTIVE"}
-              className="w-full justify-start rounded-xl px-3 py-3 text-primary-ink/75 hover:bg-primary-ink/10 hover:text-primary-ink aria-[current=page]:bg-primary-ink/15 aria-[current=page]:text-primary-ink"
+              className="w-full justify-start rounded-xl px-3.5 py-2.5 text-sm font-medium text-primary-ink/75 transition-all duration-150 hover:bg-primary-ink/10 hover:text-primary-ink aria-[current=page]:border aria-[current=page]:border-pastel-lemon/60 aria-[current=page]:bg-primary-ink/15 aria-[current=page]:text-primary-ink aria-[current=page]:font-semibold aria-[current=page]:shadow-xs"
             />
           ))}
         </nav>
 
-        <div className="mt-auto border-t border-primary-ink/15 pt-4">
+        <div className="mt-auto border-t border-line-strong pt-4">
           {isLoading ? null : user ? (
             <div className="space-y-2">
-              <span
-                className="block truncate px-3 text-sm text-primary-ink/70"
-                title={user.email}
-              >
-                {user.email}
-              </span>
+              <div className="flex items-center gap-2 rounded-xl border border-line-strong bg-primary-ink/10 px-3 py-2">
+                <div className="size-2 rounded-full bg-accent" />
+                <span
+                  className="block truncate text-xs font-medium text-primary-ink/75"
+                  title={user.email}
+                >
+                  {user.email}
+                </span>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -114,7 +129,7 @@ export function SiteHeader() {
                 <Button
                   variant="primary"
                   size="sm"
-                  className="w-full bg-pastel-lemon text-ink hover:brightness-105"
+                  className="w-full border border-danger bg-danger text-white font-semibold shadow-xs hover:brightness-105 active:scale-[0.98] transition-all"
                 >
                   <User className="size-4" aria-hidden="true" />
                   Get started
@@ -129,7 +144,7 @@ export function SiteHeader() {
       <div
         id="mobile-nav-panel"
         className={cn(
-          "border-b border-line bg-surface shadow-soft lg:hidden",
+          "border-b border-line bg-surface/95 backdrop-blur-lg shadow-float lg:hidden",
           mobileOpen ? "block" : "hidden",
         )}
       >
@@ -139,10 +154,23 @@ export function SiteHeader() {
               key={item.href}
               {...item}
               activeIndicator={item.href === "/trip" && activeTripProgress?.status === "ACTIVE"}
-              className="w-full justify-start"
+              className="w-full justify-start rounded-xl aria-[current=page]:border aria-[current=page]:border-pastel-mint/80 aria-[current=page]:bg-pastel-mint/35 aria-[current=page]:text-ink"
               onClick={() => setMobileOpen(false)}
             />
           ))}
+
+          {user?.role === "traveler" ? (
+            <Link
+              href="/contribute/experience"
+              className="mt-1 block"
+              onClick={() => setMobileOpen(false)}
+            >
+              <Button variant="primary" size="sm" className="w-full">
+                <Plus className="size-4" aria-hidden="true" />
+                Add Local Experience
+              </Button>
+            </Link>
+          ) : null}
 
           <div className="mt-2 flex gap-2 border-t border-line pt-3">
             {isLoading ? null : user ? (
@@ -171,7 +199,7 @@ export function SiteHeader() {
                   className="flex-1"
                   onClick={() => setMobileOpen(false)}
                 >
-                  <Button variant="primary" size="sm" className="w-full">
+                  <Button variant="primary" size="sm" className="w-full border border-pastel-lemon/80 bg-pastel-lemon text-ink font-semibold">
                     <User className="size-4" aria-hidden="true" />
                     Get started
                   </Button>

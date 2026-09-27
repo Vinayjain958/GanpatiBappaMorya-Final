@@ -1,5 +1,13 @@
 import { apiClient } from "@/lib/api/client";
-import type { ApiExperienceDetail, ApiExperienceListResponse, ApiExperienceSummary, ApiOverturePlaceDatasetResponse, ExperienceListFilters } from "@/types/api";
+import type {
+  ApiExperienceDetail,
+  ApiExperienceListResponse,
+  ApiExperienceSummary,
+  ApiOverturePlaceDatasetResponse,
+  ApiReviewCreateRequest,
+  ApiReviewCreateResponse,
+  ExperienceListFilters,
+} from "@/types/api";
 
 function toSearchParams(filters: ExperienceListFilters): string {
   const params = new URLSearchParams();
@@ -79,4 +87,18 @@ export async function listAllExperiences(
 
 export function getExperience(id: string, signal?: AbortSignal) {
   return apiClient.get<ApiExperienceDetail>(`/api/v1/experiences/${id}`, { signal });
+}
+
+/** POST a real traveler review; the response carries the recomputed
+ * rating summary so the detail page can update without a refetch. */
+export function createExperienceReview(
+  experienceId: string,
+  payload: ApiReviewCreateRequest,
+  signal?: AbortSignal,
+) {
+  return apiClient.post<ApiReviewCreateResponse>(
+    `/api/v1/experiences/${experienceId}/reviews`,
+    payload,
+    { signal },
+  );
 }

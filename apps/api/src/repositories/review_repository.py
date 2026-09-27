@@ -83,6 +83,29 @@ class ReviewRepository:
         )
         return int((await self._session.execute(query)).scalar_one())
 
+    async def has_synthetic_reviews(self, experience_id: str) -> bool:
+        query = (
+            select(ExperienceReview.id)
+            .where(
+                ExperienceReview.experience_id == experience_id,
+                ExperienceReview.is_synthetic == True,  # noqa: E712 - SQLAlchemy comparison
+            )
+            .limit(1)
+        )
+        result = (await self._session.execute(query)).scalar_one_or_none()
+        return result is not None
+
+    async def next_synthetic_sequence(self, experience_id: str, generation_version: str) -> int:
+        """Next free synthetic_sequence for this experience + generation_version,
+        so real traveler reviews (generation_version="user") never collide
+        with each other on uq_experience_review_synthetic_seq."""
+        query = select(func.max(ExperienceReview.synthetic_sequence)).where(
+            ExperienceReview.experience_id == experience_id,
+            ExperienceReview.generation_version == generation_version,
+        )
+        current_max = (await self._session.execute(query)).scalar_one_or_none()
+        return 0 if current_max is None else current_max + 1
+
     def add(self, review: ExperienceReview) -> None:
         self._session.add(review)
 

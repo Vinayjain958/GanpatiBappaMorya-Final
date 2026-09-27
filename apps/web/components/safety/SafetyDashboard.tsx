@@ -171,7 +171,7 @@ export function SafetyDashboard() {
         <>
           <div className="space-y-4">
             <h2 className="text-xl font-semibold tracking-tight text-ink">Nearby Hospitals</h2>
-            <div className="motion-stagger grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {hospitals.length > 0 ? hospitals.map(hospital => (
                 <SafetyResourceCard
                   key={hospital.id}
@@ -186,7 +186,7 @@ export function SafetyDashboard() {
 
           <div className="space-y-4">
             <h2 className="text-xl font-semibold tracking-tight text-ink">Police Stations</h2>
-            <div className="motion-stagger grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {police.length > 0 ? police.map(station => (
                 <SafetyResourceCard
                   key={station.id}
@@ -201,7 +201,7 @@ export function SafetyDashboard() {
 
           <div className="space-y-4">
             <h2 className="text-xl font-semibold tracking-tight text-ink">Consulates & Embassies</h2>
-            <div className="motion-stagger grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {consulates.length > 0 ? consulates.map(consulate => (
                 <SafetyResourceCard
                   key={consulate.id}
@@ -221,7 +221,7 @@ export function SafetyDashboard() {
           <h2 className="text-xl font-semibold tracking-tight text-ink">Emergency Contacts</h2>
           <Button variant="outline" size="sm">Add Contact</Button>
         </div>
-        <div className="motion-stagger grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           {contacts.length > 0 ? contacts.map(contact => (
             <div key={contact.id} className="rounded-2xl border border-line bg-surface p-4 shadow-soft">
               <p className="font-semibold text-ink">{contact.name}</p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpDown, Clock, Database, MapPinned, Wallet } from "lucide-react";
+import { ArrowUpDown, ChevronDown, Clock, Database, MapPinned, Wallet } from "lucide-react";
 import { budgetOptions, durationOptions } from "@/lib/constants/categories";
 import type { DiscoverySort } from "@/types/api";
 import type { BudgetOption, DiscoveryDataSource, DurationOption } from "@/types/discovery";
@@ -29,13 +29,13 @@ function FilterSelect<T extends string>({
   disabledOptionValues?: T[];
 }) {
   return (
-    <label className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-sm text-ink-muted shadow-sm transition-colors focus-within:border-accent focus-within:bg-pastel-lavender/20">
-      <Icon className="size-4 shrink-0" aria-hidden="true" />
+    <label className="relative inline-flex items-center gap-2 rounded-full border border-line bg-surface/90 px-3 py-1.5 text-sm text-ink-muted shadow-xs transition-all duration-150 hover:border-line-strong hover:bg-surface focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/10">
+      <Icon className="size-3.5 shrink-0 text-accent" aria-hidden="true" />
       <span className="sr-only">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
-        className="min-w-0 max-w-[190px] cursor-pointer bg-transparent text-ink focus:outline-none"
+        className="min-w-0 max-w-[190px] cursor-pointer appearance-none bg-transparent pr-4 text-xs font-medium text-ink focus:outline-none"
         aria-label={label}
       >
         {options.map((option) => (
@@ -48,6 +48,7 @@ function FilterSelect<T extends string>({
           </option>
         ))}
       </select>
+      <ChevronDown className="pointer-events-none absolute right-2 size-3 text-ink-subtle" aria-hidden="true" />
     </label>
   );
 }
@@ -69,7 +70,7 @@ export function FilterBar({
   hasLocation: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2.5">
+    <div className="flex flex-wrap items-center gap-2">
       <FilterSelect
         icon={Wallet}
         label="Budget"
@@ -110,7 +111,7 @@ export function FilterBar({
       />
 
       {!hasLocation ? (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-pastel-lemon/50 px-3 py-2 text-xs text-ink-muted">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-pastel-lemon/80 bg-pastel-lemon/40 px-3 py-1.5 text-xs font-medium text-ink shadow-xs">
           <MapPinned className="size-3.5 shrink-0" aria-hidden="true" />
           Set a location to sort by distance
         </span>

@@ -19,26 +19,34 @@ export function CollabHome() {
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const rows = await listCollabGroups(signal);
-      if (!signal?.aborted) {
-        setGroups(rows);
-        setError(null);
+  // Returns the next state instead of setting it, so the effect below only
+  // calls setState from the resolved promise (never synchronously).
+  const fetchGroups = useCallback(
+    async (signal?: AbortSignal): Promise<{ groups: CollabGroup[] } | { error: string } | null> => {
+      try {
+        return { groups: await listCollabGroups(signal) };
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return null;
+        return { error: err instanceof ApiError ? err.message : "Couldn't load your groups." };
       }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      if (!signal?.aborted) setError(err instanceof ApiError ? err.message : "Couldn't load your groups.");
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
-    void load(controller.signal);
+    fetchGroups(controller.signal).then((next) => {
+      if (!next || controller.signal.aborted) return;
+      if ("groups" in next) {
+        setGroups(next.groups);
+        setError(null);
+      } else {
+        setError(next.error);
+      }
+      setLoading(false);
+    });
     return () => controller.abort();
-  }, [load, reload]);
+  }, [fetchGroups, reload]);
 
   return (
     <PageContainer className="space-y-8 py-8 sm:py-10">

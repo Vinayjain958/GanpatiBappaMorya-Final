@@ -72,10 +72,16 @@ async def run_enrichment(
         )
         await session.flush()
 
-    # Load all active experiences with relationships
+    # Load all active experiences with relationships. Traveler-contributed
+    # places (source_type="traveler_submission") are deliberately excluded:
+    # they must never receive a fabricated rating/review/hours just because
+    # they exist — they start with zero reviews and only gain real ones.
     query = (
         select(Experience)
-        .where(Experience.status == "active")
+        .where(
+            Experience.status == "active",
+            Experience.source_type != "traveler_submission",
+        )
         .options(
             selectinload(Experience.category),
             selectinload(Experience.location),

@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.adapters.embedding import EmbeddingAdapter
 from src.adapters.errors import AdapterError
+from src.adapters.media_storage import DatabaseMediaStorage
 from src.adapters.routing import OSRMRoutingAdapter, RoutingAdapter
 from src.core.catalog_cache import catalog_cache, catalog_cache_key, invalidate_catalog_cache
 from src.core.config import Settings, get_settings
@@ -32,6 +34,8 @@ from src.schemas.experience import (
     ExperienceReviewSummary,
     ExperienceSummary,
     RatingSummary,
+    ReviewCreateRequest,
+    ReviewCreateResponse,
 )
 from src.schemas.experience_write import ExperienceCreateRequest, ExperienceUpdateRequest
 from src.schemas.semantic_search import (
@@ -49,6 +53,8 @@ from src.schemas.source_data import (
 from src.services import experience as experience_service
 from src.services.discovery import DiscoveryQuery, ExperienceDiscoveryService
 from src.services.discovery_pipeline import DiscoveryPipelineService
+from src.services.media_validation import ImageValidationError, validate_and_process_image
+from src.services.reviews import submit_review
 
 router = APIRouter(prefix="/experiences", tags=["experiences"])
 
@@ -422,6 +428,33 @@ async def list_experience_reviews(
     return ExperienceReviewListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
+@router.post("/{experience_id}/reviews", response_model=ReviewCreateResponse, status_code=201)
+async def create_experience_review(
+    experience_id: str,
+    payload: ReviewCreateRequest,
+    user: Annotated[User, Depends(require_traveler)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ReviewCreateResponse:
+    """A real, persisted traveler review (is_synthetic=False,
+    source_type="user_submitted"). The experience's aggregate rating is
+    recomputed from every review row right after the write."""
+    review, _experience = await submit_review(session, experience_id, user, payload)
+    invalidate_catalog_cache()  # the new average shows on Discover cards
+
+    review_repo = ReviewRepository(session)
+    avg_rating, count, distribution = await review_repo.get_distribution_and_avg(experience_id)
+    has_synthetic = await review_repo.has_synthetic_reviews(experience_id)
+    return ReviewCreateResponse(
+        review=ExperienceReviewSummary.model_validate(review),
+        rating_summary=RatingSummary(
+            average_rating=avg_rating,
+            review_count=count,
+            rating_distribution=distribution,
+            is_synthetic=has_synthetic,
+        ),
+    )
+
+
 async def _get_owned_or_404(session: AsyncSession, experience_id: str, provider: Provider) -> Experience:
     repository = ExperienceRepository(session)
     experience = await repository.get_owned_by_id(experience_id, provider.id)
@@ -455,3 +488,50 @@ async def deactivate_experience(
     deactivated = await experience_service.deactivate_experience(session, experience)
     invalidate_catalog_cache()
     return ExperienceDetail.model_validate(deactivated)
+
+
+@router.post("/{experience_id}/image", response_model=ExperienceDetail)
+async def upload_experience_image(
+    experience_id: str,
+    provider: CurrentProvider,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    image: UploadFile,
+) -> ExperienceDetail:
+    """Provider-owned shop/venue photo. Same validation/EXIF-stripping and
+    database storage as traveler contributions; image_source="provider_upload"
+    is already treated as never-overwrite by the enrichment scripts."""
+    experience = await _get_owned_or_404(session, experience_id, provider)
+
+    image_bytes = await image.read(settings.media_max_upload_bytes + 1)
+    try:
+        processed = validate_and_process_image(
+            image_bytes,
+            max_bytes=settings.media_max_upload_bytes,
+            max_dimension_px=settings.media_max_image_dimension_px,
+        )
+    except ImageValidationError as exc:
+        raise ApiError(str(exc), status_code=422) from exc
+
+    storage = DatabaseMediaStorage(session)
+    await storage.delete_url(experience.image_url)  # a replaced photo isn't kept
+    experience.image_url = storage.save(processed.data, processed.object_key, processed.content_type)
+    experience.image_thumbnail_url = None
+    experience.image_source = "provider_upload"
+    experience.image_is_place_specific = True
+    experience.image_is_synthetic = False
+    experience.image_source_url = None
+    experience.image_source_id = None
+    experience.image_license = None
+    experience.image_license_url = None
+    experience.image_author = None
+    experience.image_attribution_text = None
+    experience.image_match_method = None
+    experience.image_retrieved_at = datetime.now(UTC)
+
+    await session.commit()
+    invalidate_catalog_cache()
+
+    reloaded = await ExperienceRepository(session).get_by_id(experience_id)
+    assert reloaded is not None
+    return ExperienceDetail.model_validate(reloaded)

@@ -57,10 +57,22 @@ export interface ApiExperienceReviewSummary {
 }
 
 export interface ApiRatingSummary {
-  average_rating: number;
+  /** Null when the experience has no reviews yet. */
+  average_rating: number | null;
   review_count: number;
   rating_distribution: Record<string, number>;
   is_synthetic: boolean;
+}
+
+export interface ApiReviewCreateRequest {
+  rating_value: number;
+  title: string;
+  body: string;
+}
+
+export interface ApiReviewCreateResponse {
+  review: ApiExperienceReviewSummary;
+  rating_summary: ApiRatingSummary;
 }
 
 export interface ApiExperienceReviewListResponse {
@@ -117,6 +129,8 @@ export interface ApiExperienceSummary {
    * enrichment succeeded (see apps/api/src/api/v1/experiences.py). */
   travel_time_minutes: number | null;
   travel_time_source: "osrm" | "haversine_estimate" | null;
+  /** Catalog provenance (e.g. "traveler_submission"). */
+  source_type?: string | null;
 }
 
 export interface ApiOvertureSourceRecord {

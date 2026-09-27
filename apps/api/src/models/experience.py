@@ -140,6 +140,9 @@ class Experience(UUIDPrimaryKeyMixin, TimestampMixin, ProvenanceMixin, Base):
     # image_source distinguishes how image_url was populated:
     #   "provider_upload"   -> a real business uploaded this themselves;
     #                          the enrichment script must NEVER overwrite it.
+    #   "traveler_upload"    -> a traveler's own photo from the "Add a Local
+    #                          Experience" flow; same precedence as
+    #                          provider_upload — enrichment must NEVER overwrite it.
     #   "wikimedia_commons"  -> resolved via src/services/experience_images.py;
     #                          image_is_synthetic is always False.
     #   "category_fallback"  -> LocaLens's own generic per-category stock

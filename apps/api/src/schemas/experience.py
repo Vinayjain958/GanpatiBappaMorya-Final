@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class CategorySummary(BaseModel):
@@ -80,6 +80,15 @@ class ExperienceReviewSummary(BaseModel):
     is_synthetic: bool = True
 
 
+class ReviewCreateRequest(BaseModel):
+    """A traveler-submitted review. Author identity, provenance and the
+    synthetic flag are always server-derived, never accepted from the client."""
+
+    rating_value: int = Field(ge=1, le=5)
+    title: str = Field(min_length=1, max_length=160)
+    body: str = Field(min_length=1, max_length=4000)
+
+
 class RatingSummary(BaseModel):
     average_rating: float | None = None
     review_count: int = 0
@@ -136,6 +145,9 @@ class ExperienceSummary(BaseModel):
     is_synthetic: bool
     is_enriched: bool
     image: ExperienceImage | None = None
+    # Catalog provenance — lets list views label community-added places
+    # ("traveler_submission") without fetching each detail.
+    source_type: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -220,3 +232,8 @@ class ExperienceReviewListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class ReviewCreateResponse(BaseModel):
+    review: ExperienceReviewSummary
+    rating_summary: RatingSummary

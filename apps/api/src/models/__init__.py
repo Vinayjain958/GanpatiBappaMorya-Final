@@ -8,6 +8,7 @@ from src.models.availability import ExperienceAvailability
 from src.models.booking_request import BookingRequest
 from src.models.category import ExperienceCategory
 from src.models.context_snapshot import ContextSnapshot
+from src.models.contribution import TravelerExperienceContribution
 from src.models.conversation_message import ConversationMessage
 from src.models.conversation_session import ConversationSession
 from src.models.embedding import ExperienceEmbedding
@@ -18,6 +19,7 @@ from src.models.itinerary_custom_activity import ItineraryCustomActivity
 from src.models.itinerary_item import ItineraryItem
 from src.models.itinerary_revision import ItineraryRevision
 from src.models.location import Location
+from src.models.media_object import MediaObject
 from src.models.opening_hour import ExperienceOpeningHour
 from src.models.preference import TravelerPreference
 from src.models.provider import Provider
@@ -70,6 +72,8 @@ __all__ = [
     "ProviderSyntheticDemandSnapshot",
     "EmergencyContact",
     "EmergencyAlert",
+    "TravelerExperienceContribution",
+    "MediaObject",
     "CollabGroup",
     "CollabMember",
     "CollabMemberPreferences",

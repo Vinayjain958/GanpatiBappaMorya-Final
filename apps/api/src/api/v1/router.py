@@ -9,6 +9,7 @@ from src.api.v1 import (
     categories,
     collab,
     context,
+    contributions,
     conversation,
     digital_twin,
     domain_intelligence,
@@ -18,6 +19,7 @@ from src.api.v1 import (
     health,
     itineraries,
     location,
+    media,
     provider_intelligence,
     providers,
     recommendations,
@@ -31,6 +33,8 @@ api_v1_router.include_router(auth.router)
 api_v1_router.include_router(categories.router)
 api_v1_router.include_router(providers.router)
 api_v1_router.include_router(experiences.router)
+api_v1_router.include_router(contributions.router)
+api_v1_router.include_router(media.router)
 api_v1_router.include_router(availability.router)
 api_v1_router.include_router(location.router)
 api_v1_router.include_router(conversation.router)

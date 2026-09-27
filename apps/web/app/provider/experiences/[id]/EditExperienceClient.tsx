@@ -14,7 +14,7 @@ import {
   type ExperienceFormValues,
 } from "@/components/provider/ExperienceForm";
 import { getExperience } from "@/lib/api/experiences";
-import { updateExperience } from "@/lib/api/experiencesWrite";
+import { updateExperience, uploadExperienceImage } from "@/lib/api/experiencesWrite";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/AuthContext";
 
@@ -108,12 +108,15 @@ export function EditExperienceClient({ experienceId }: { experienceId: string })
     };
   }, [experienceId, authProvider]);
 
-  async function handleSubmit(values: ExperienceFormValues) {
+  async function handleSubmit(values: ExperienceFormValues, shopImage: File | null) {
     setIsSubmitting(true);
     setError(null);
 
     try {
       await updateExperience(experienceId, buildUpdatePayload(values));
+      if (shopImage) {
+        await uploadExperienceImage(experienceId, shopImage);
+      }
       router.refresh();
       setInitialValues(values);
     } catch (err) {

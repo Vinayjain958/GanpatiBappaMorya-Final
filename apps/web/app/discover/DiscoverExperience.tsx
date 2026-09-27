@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { List, Map as MapIcon, SearchX } from "lucide-react";
+import { List, Map as MapIcon, Plus, SearchX } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { ConversationalDiscoveryInput } from "@/components/discovery/ConversationalDiscoveryInput";
 import { CategoryChips } from "@/components/discovery/CategoryChips";
@@ -26,6 +27,7 @@ import { experiencesToFeatureCollection } from "@/lib/geo/geojson";
 import { haversineKm } from "@/lib/geo/haversine";
 import { DEFAULT_DISCOVERY_STATE } from "@/types/discovery";
 import { cn } from "@/lib/utils/cn";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 export function DiscoverExperience() {
   const router = useRouter();
@@ -45,6 +47,8 @@ export function DiscoverExperience() {
     reloadToken,
   );
   const { savedIds, toggleSaved } = useSavedExperienceIds();
+  const { user } = useAuth();
+  const canContribute = !user || user.role === "traveler";
 
   // Keep the URL shareable/reproducible without triggering a full navigation.
   useEffect(() => {
@@ -110,17 +114,26 @@ export function DiscoverExperience() {
 
   return (
     <PageContainer className="space-y-5 py-6 sm:space-y-6 sm:py-8">
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] xl:items-center">
-        <div>
+      <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] xl:items-center">
+        <div className="min-w-0">
           <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
             Discover
           </h1>
           <p className="mt-1 text-sm text-ink-muted">
             Search by what you want, then narrow by location.
           </p>
+          {canContribute ? (
+            <Link
+              href="/contribute/experience"
+              className="group mt-3 inline-flex items-center gap-2 rounded-full border border-pastel-lemon/80 bg-pastel-lemon/40 px-3.5 py-1.5 text-xs font-medium text-ink shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-pastel-lemon/70 hover:shadow-porcelain-hover"
+            >
+              <Plus className="size-3.5 transition-transform duration-200 group-hover:rotate-90" aria-hidden="true" />
+              Know a hidden gem? Add a local experience
+            </Link>
+          ) : null}
         </div>
 
-        <div className="rounded-[1.5rem] border border-line bg-pastel-lavender/60 p-2 shadow-soft sm:p-3">
+        <div className="min-w-0 rounded-[1.5rem] border border-line bg-pastel-lavender/60 p-2 shadow-soft sm:p-3">
           <ConversationalDiscoveryInput
             size="compact"
             suggestions={discoveryState.q ? [] : undefined}

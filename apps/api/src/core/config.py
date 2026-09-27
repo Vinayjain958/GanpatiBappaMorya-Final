@@ -328,6 +328,18 @@ class Settings(BaseSettings):
     wikimedia_geosearch_radii_m: list[int] = Field(default_factory=lambda: [1000, 3000, 5000])
     wikimedia_geosearch_limit: int = 20
     wikimedia_search_limit: int = 10
+
+    # ─── Traveler experience contributions ──────────────────────────────────
+    # Direct-publish "Add a Local Experience" flow: an authenticated
+    # traveler's submission becomes a live Experience after deterministic
+    # validation (image content check, duplicate detection) — no external
+    # service call is needed to publish. Photos are validated, EXIF-stripped
+    # and re-encoded server-side, then stored in the database
+    # (media_objects) because the API host's disk is not durable.
+    media_max_upload_bytes: int = 8 * 1024 * 1024
+    media_max_image_dimension_px: int = 1600
+    contribution_rate_limit_per_hour: int = 5
+    contribution_duplicate_radius_m: float = 150.0
     # Below this deterministic match score, no image is selected at all —
     # "no suitable image" beats "wrong image" (see enrichment script).
     wikimedia_min_match_score: float = 20.0

@@ -196,7 +196,9 @@ export function CollabGroupWorkspace({ groupId }: { groupId: string }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void load(controller.signal);
+    // Started from a resolved promise so load()'s many state updates never
+    // run synchronously inside the effect body (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(() => load(controller.signal));
     return () => controller.abort();
   }, [load, refreshKey]);
 

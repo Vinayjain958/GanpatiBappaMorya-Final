@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Safety" };
 export default function SafetyPage() {
   return (
     <PageContainer className="space-y-8 py-8 sm:py-10">
-      <div className="motion-arrive flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
           <h1 className="flex items-center gap-2.5 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
             <span className="flex size-10 items-center justify-center rounded-2xl bg-danger-soft text-danger">

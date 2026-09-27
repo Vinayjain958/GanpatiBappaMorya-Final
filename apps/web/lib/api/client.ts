@@ -51,6 +51,12 @@ interface RequestOptions {
   _isRetry?: boolean;
 }
 
+interface FormRequestOptions {
+  signal?: AbortSignal;
+  headers?: Record<string, string>;
+  _isRetry?: boolean;
+}
+
 // Endpoints that must never trigger the automatic refresh-and-retry
 // dance — refresh itself, and the two endpoints that establish/replace
 // a session from scratch (a 401 there is a real, final answer).
@@ -170,11 +176,64 @@ async function request<TResponse>(
     throw new ApiError("Network request failed", 0, cause);
   }
 
-  if (response.status === 401 && !_isRetry && !NO_REFRESH_RETRY_PATHS.some((p) => path.startsWith(p))) {
+  return finishResponse(
+    response,
+    path,
+    () => request<TResponse>(path, { method, body, signal, headers, _isRetry: true }),
+    _isRetry,
+  );
+}
+
+/**
+ * multipart/form-data POST — used where a file travels alongside form
+ * fields (the traveler "Add a Local Experience" upload). Never sets
+ * Content-Type itself: the browser must generate it, with the multipart
+ * boundary, from the FormData body. Not wake-retried (it's a write), but
+ * shares request()'s auth header, 401-refresh-retry and ApiError parsing.
+ */
+async function requestForm<TResponse>(
+  path: string,
+  form: FormData,
+  { signal, headers, _isRetry = false }: FormRequestOptions = {},
+): Promise<TResponse> {
+  const token = getAccessToken();
+
+  let response: Response;
+  try {
+    response = await fetch(`${env.apiBaseUrl}${path}`, {
+      method: "POST",
+      signal,
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+      body: form,
+    });
+  } catch (cause) {
+    throw new ApiError("Network request failed", 0, cause);
+  }
+
+  return finishResponse(
+    response,
+    path,
+    () => requestForm<TResponse>(path, form, { signal, headers, _isRetry: true }),
+    _isRetry,
+  );
+}
+
+/** Shared 401-refresh-retry and error-parsing tail for request() and
+ * requestForm(), so that behavior only ever has to change in one place. */
+async function finishResponse<TResponse>(
+  response: Response,
+  path: string,
+  retry: () => Promise<TResponse>,
+  isRetry: boolean,
+): Promise<TResponse> {
+  if (response.status === 401 && !isRetry && !NO_REFRESH_RETRY_PATHS.some((p) => path.startsWith(p))) {
     const refreshed = await attemptRefresh();
-    if (refreshed) {
-      return request<TResponse>(path, { method, body, signal, headers, _isRetry: true });
-    }
+    if (refreshed) return retry();
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -212,4 +271,6 @@ export const apiClient = {
     request<T>(path, { ...options, method: "PATCH", body }),
   delete: <T>(path: string, options?: Omit<RequestOptions, "method" | "body">) =>
     request<T>(path, { ...options, method: "DELETE" }),
+  postForm: <T>(path: string, form: FormData, options?: Omit<FormRequestOptions, "_isRetry">) =>
+    requestForm<T>(path, form, options),
 };

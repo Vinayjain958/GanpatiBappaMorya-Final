@@ -14,10 +14,16 @@ const GENERIC_FALLBACK_IMAGE = "https://images.unsplash.com/photo-1499892477393-
  * at render time. */
 export function ExperienceImageView({ src, alt, ...rest }: ImageProps) {
   const [currentSrc, setCurrentSrc] = useState(src);
+  // Traveler-uploaded photos are served by the API (proxied same-origin at
+  // /api/v1/media/*) and are already resized/re-encoded server-side, so
+  // they skip the Next image optimizer rather than round-tripping through
+  // the rewrite a second time.
+  const isUploadedMedia = typeof currentSrc === "string" && currentSrc.startsWith("/api/v1/media/");
 
   return (
     <Image
       {...rest}
+      unoptimized={rest.unoptimized ?? isUploadedMedia}
       src={currentSrc}
       alt={alt}
       onError={() => {

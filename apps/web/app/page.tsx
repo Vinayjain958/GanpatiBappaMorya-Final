@@ -10,6 +10,8 @@ import { ExperienceComposer } from "@/components/experience/ExperienceComposer";
 import { ApiStatusBadge } from "@/components/common/ApiStatusBadge";
 import { DemoDataBadge } from "@/components/ui/DemoDataBadge";
 import { Button } from "@/components/ui/Button";
+import { TravelShapesBackground } from "@/components/common/TravelShapesBackground";
+import { TravelDoodles } from "@/components/common/TravelDoodles";
 import { mockExperiences } from "@/mocks/experiences";
 import { mockTrip } from "@/mocks/trip";
 
@@ -45,7 +47,7 @@ export default function LandingPage() {
 
   return (
     <>
-      <section className="relative overflow-hidden border-b border-line bg-surface">
+      <section className="landing-hero relative overflow-hidden border-b border-line bg-surface">
         <div
           className="pointer-events-none absolute inset-0 opacity-70"
           style={{
@@ -54,7 +56,9 @@ export default function LandingPage() {
           }}
           aria-hidden="true"
         />
-        <PageContainer className="motion-arrive relative flex flex-col items-center gap-8 py-16 text-center sm:py-24">
+        <TravelShapesBackground variant="hero" />
+        <TravelDoodles variant="hero" />
+        <PageContainer className="landing-hero-content relative z-10 flex flex-col items-center gap-8 py-16 text-center sm:py-24">
           <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface-raised px-3.5 py-1.5 text-xs font-medium text-ink-muted shadow-sm">
             <Brain className="size-3.5 text-accent" aria-hidden="true" />
             AI-native local experience companion
@@ -82,7 +86,7 @@ export default function LandingPage() {
             {loop.map((step, index) => (
               <div
                 key={step.title}
-                className="relative rounded-2xl border border-line bg-surface p-5 shadow-soft transition-shadow hover:shadow-md"
+                className="relative rounded-2xl border border-line bg-surface p-5 shadow-porcelain transition-all duration-200 hover:-translate-y-1 hover:shadow-porcelain-hover"
               >
                 <span className="text-xs font-semibold text-ink-subtle">0{index + 1}</span>
                 <span className="mt-3 flex size-11 items-center justify-center rounded-2xl bg-accent-soft text-accent">
@@ -116,7 +120,7 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
-          <div className="motion-stagger grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {mockExperiences.slice(0, 3).map((experience) => (
               <ExperienceCard key={experience.id} experience={experience} />
             ))}
