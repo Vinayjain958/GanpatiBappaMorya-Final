@@ -74,12 +74,50 @@ const NO_REFRESH_RETRY_PATHS = [
  */
 let refreshPromise: Promise<boolean> | null = null;
 
+// The free-tier backend sleeps when idle and takes up to ~a minute to wake;
+// meanwhile the proxy answers 502/503/504 (or the connection drops). Safe
+// requests — reads plus login/refresh — are retried with backoff instead of
+// surfacing that as an error. Other writes are never retried automatically.
+const WAKE_RETRY_STATUSES = new Set([502, 503, 504]);
+const WAKE_RETRY_DELAYS_MS = [2000, 4000, 8000, 15000, 20000];
+const WAKE_RETRY_SAFE_POSTS = ["/api/v1/auth/login", "/api/v1/auth/refresh"];
+
+function isWakeRetryable(method: string, path: string): boolean {
+  return method === "GET" || WAKE_RETRY_SAFE_POSTS.some((p) => path.startsWith(p));
+}
+
+function sleep(ms: number, signal?: AbortSignal | null): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    }, { once: true });
+  });
+}
+
+async function fetchWithWakeRetry(path: string, init: RequestInit): Promise<Response> {
+  const url = `${env.apiBaseUrl}${path}`;
+  const retryable = isWakeRetryable(init.method ?? "GET", path);
+  for (let attempt = 0; ; attempt++) {
+    const canRetry = retryable && attempt < WAKE_RETRY_DELAYS_MS.length;
+    try {
+      const response = await fetch(url, init);
+      if (!canRetry || !WAKE_RETRY_STATUSES.has(response.status)) return response;
+    } catch (cause) {
+      if (!canRetry || init.signal?.aborted) throw cause;
+    }
+    await sleep(WAKE_RETRY_DELAYS_MS[attempt], init.signal);
+  }
+}
+
 async function attemptRefresh(): Promise<boolean> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
     try {
-      const response = await fetch(`${env.apiBaseUrl}/api/v1/auth/refresh`, {
+      const response = await fetchWithWakeRetry("/api/v1/auth/refresh", {
         method: "POST",
         credentials: "include",
         headers: { Accept: "application/json" },
@@ -112,12 +150,11 @@ async function request<TResponse>(
   path: string,
   { method = "GET", body, signal, headers, _isRetry = false }: RequestOptions = {},
 ): Promise<TResponse> {
-  const url = `${env.apiBaseUrl}${path}`;
   const token = getAccessToken();
 
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await fetchWithWakeRetry(path, {
       method,
       signal,
       credentials: "include",

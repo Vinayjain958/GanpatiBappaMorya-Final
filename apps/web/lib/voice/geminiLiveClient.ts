@@ -12,7 +12,7 @@
  * sessionStorage/cookies. GEMINI_API_KEY never reaches this file at all.
  */
 
-import { GoogleGenAI, type LiveServerMessage, type Session } from "@google/genai";
+import type { LiveServerMessage, Session } from "@google/genai";
 import { executeToolCall } from "@/lib/api/conversation";
 import { PCMAudioCapture } from "@/lib/voice/audioCapture";
 import { PCMAudioPlayer } from "@/lib/voice/audioPlayback";
@@ -53,6 +53,9 @@ export class GeminiLiveClient {
     this.closed = false;
     this.callbacks.onStateChange("CONNECTING");
 
+    // Loaded on first voice use only: the SDK is ~380 KB and would otherwise
+    // ship on every page that merely renders the mic button.
+    const { GoogleGenAI } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey: ephemeralToken });
 
     try {

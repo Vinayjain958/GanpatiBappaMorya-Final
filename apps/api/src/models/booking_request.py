@@ -58,7 +58,7 @@ class BookingRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     __table_args__ = (
         Index(
-            "ix_booking_requests_traveler_provider_experience_itinerary_status",
+            "ix_booking_requests_trav_prov_exp_itin_status",
             "traveler_id", "provider_id", "experience_id", "itinerary_id", "status",
         ),
     )

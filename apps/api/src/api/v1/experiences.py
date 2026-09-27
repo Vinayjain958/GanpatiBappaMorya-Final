@@ -5,12 +5,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.adapters.embedding import EmbeddingAdapter
 from src.adapters.errors import AdapterError
 from src.adapters.routing import OSRMRoutingAdapter, RoutingAdapter
+from src.core.catalog_cache import catalog_cache, catalog_cache_key, invalidate_catalog_cache
 from src.core.config import Settings, get_settings
 from src.core.db import get_session
 from src.core.deps import CurrentProvider, CurrentUser, require_traveler
@@ -67,7 +68,7 @@ _LOCALENS_ENRICHMENT_FIELDS = (
 
 @lru_cache(maxsize=1)
 def _load_overture_dataset() -> OverturePlaceDatasetResponse:
-    data_path = Path(__file__).resolve().parents[5] / "data" / "processed" / "overture_experiences.json"
+    data_path = Path(__file__).resolve().parents[3] / "data" / "processed" / "overture_experiences.json"
     try:
         with data_path.open(encoding="utf-8") as source_file:
             raw_records = json.load(source_file)
@@ -121,7 +122,7 @@ def _load_overture_catalog_addon() -> OverturePlaceDatasetResponse:
     category or operating-status fields for every row. Those values stay
     null instead of being reconstructed or guessed.
     """
-    data_path = Path(__file__).resolve().parents[5] / "data" / "processed" / "overture_catalog_addon.json"
+    data_path = Path(__file__).resolve().parents[3] / "data" / "processed" / "overture_catalog_addon.json"
     try:
         with data_path.open(encoding="utf-8") as source_file:
             raw_records = json.load(source_file)
@@ -190,6 +191,7 @@ def _load_overture_catalog_addon() -> OverturePlaceDatasetResponse:
 
 @router.get("", response_model=ExperienceListResponse)
 async def list_experiences(
+    request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
     routing: Annotated[RoutingAdapter, Depends(get_routing_adapter)],
@@ -212,8 +214,15 @@ async def list_experiences(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ExperienceListResponse:
+    cache_key = catalog_cache_key("experiences", request.query_params)
+    cached = catalog_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     repository = ExperienceRepository(session)
-    service = ExperienceDiscoveryService(repository, settings)
+    # The list only renders summary cards, so skip loading opening hours and
+    # availability slots for every candidate (the bulk of the data).
+    service = ExperienceDiscoveryService(repository, settings, include_schedule=False)
 
     try:
         result = await service.search(
@@ -255,7 +264,9 @@ async def list_experiences(
         except AdapterError:
             pass  # travel time is an enhancement; discovery must still succeed
 
-    return ExperienceListResponse(items=summaries, total=result.total, limit=limit, offset=offset)
+    response = ExperienceListResponse(items=summaries, total=result.total, limit=limit, offset=offset)
+    catalog_cache.set(cache_key, response)
+    return response
 
 
 @router.post("/semantic-search", response_model=SemanticSearchResponse)
@@ -354,6 +365,7 @@ async def create_experience(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ExperienceDetail:
     experience = await experience_service.create_experience(session, provider, payload)
+    invalidate_catalog_cache()
     return ExperienceDetail.model_validate(experience)
 
 
@@ -429,6 +441,7 @@ async def update_experience(
 ) -> ExperienceDetail:
     experience = await _get_owned_or_404(session, experience_id, provider)
     updated = await experience_service.update_experience(session, experience, payload)
+    invalidate_catalog_cache()
     return ExperienceDetail.model_validate(updated)
 
 
@@ -440,4 +453,5 @@ async def deactivate_experience(
 ) -> ExperienceDetail:
     experience = await _get_owned_or_404(session, experience_id, provider)
     deactivated = await experience_service.deactivate_experience(session, experience)
+    invalidate_catalog_cache()
     return ExperienceDetail.model_validate(deactivated)

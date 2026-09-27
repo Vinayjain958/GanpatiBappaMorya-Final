@@ -36,12 +36,22 @@ class CategoryRepository:
         radius_km: float | None = None,
     ) -> list[ExperienceCategory]:
         """Return categories with active, non-synthetic places in an area."""
+        radius_filter = lat is not None and lng is not None and radius_km is not None
+        # Only the category id (plus coordinates when a radius must be checked
+        # exactly) is fetched per place; without a radius the database returns
+        # just the distinct ids. Full category rows are loaded once at the end.
+        columns = (
+            (Experience.category_id, Location.latitude, Location.longitude)
+            if radius_filter
+            else (Experience.category_id,)
+        )
         query = (
-            select(ExperienceCategory, Location.latitude, Location.longitude)
-            .join(Experience, Experience.category_id == ExperienceCategory.id)
+            select(*columns)
             .join(Location, Experience.location_id == Location.id)
             .where(Experience.status == "active", Experience.is_synthetic.is_(False))
         )
+        if not radius_filter:
+            query = query.distinct()
         if city:
             query = query.where(Location.city == city)
         if locality:
@@ -57,10 +67,20 @@ class CategoryRepository:
             )
 
         rows = (await self._session.execute(query)).all()
-        available: dict[str, ExperienceCategory] = {}
-        for category, place_lat, place_lng in rows:
-            if radius_km is not None and lat is not None and lng is not None:
-                if haversine_km(lat, lng, place_lat, place_lng) > radius_km:
+        category_ids: set[str] = set()
+        for row in rows:
+            if radius_filter:
+                category_id, place_lat, place_lng = row
+                if haversine_km(lat, lng, place_lat, place_lng) > radius_km:  # type: ignore[arg-type]
                     continue
-            available[category.id] = category
-        return sorted(available.values(), key=lambda category: (category.sort_order, category.name))
+            else:
+                (category_id,) = row
+            category_ids.add(category_id)
+        if not category_ids:
+            return []
+        categories = (
+            await self._session.execute(
+                select(ExperienceCategory).where(ExperienceCategory.id.in_(category_ids))
+            )
+        ).scalars().all()
+        return sorted(categories, key=lambda category: (category.sort_order, category.name))

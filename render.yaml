@@ -1,36 +1,67 @@
+# Render Blueprint — backend API only.
+# Database: Supabase PostgreSQL (Session pooler URL — the direct
+# db.<ref>.supabase.co host is IPv6-only and unreachable from Render).
+# Frontend: Vercel (Root Directory: apps/web).
 services:
-  # Backend API
   - type: web
     name: localens-api
-    env: docker
-    region: oregon
+    runtime: docker
     plan: free
-    dockerContext: ./apps/api
-    dockerfilePath: ./apps/api/Dockerfile
+    region: singapore
+    rootDir: apps/api
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/health
     envVars:
-      - key: SUPABASE_URL
+      # ─── Core ───────────────────────────────────────────────────────────
+      - key: APP_ENV
+        value: production
+      # Supabase Session pooler URI (port 5432, NOT the 6543 transaction pooler,
+      # which breaks asyncpg prepared statements), with ?sslmode=require appended
+      - key: DATABASE_URL
         sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
+      - key: APP_SECRET_KEY
+        generateValue: true
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      # Your Vercel URL. Any format works: https://x.vercel.app  or  ["https://x.vercel.app"]
+      - key: CORS_ALLOW_ORIGINS
         sync: false
-      - key: GEMINI_API_KEY
-        sync: false
+
+      # ─── Seeding: Supabase is already seeded. Only set "true" for one deploy
+      # if you ever need to rebuild the catalog from scratch.
+      - key: SEED_ON_STARTUP
+        value: "false"
+      - key: INDEX_EMBEDDINGS_ON_STARTUP
+        value: "false"
+
+      # ─── AI ─────────────────────────────────────────────────────────────
       - key: GEMINI_ENABLED
         value: "true"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL_TEXT
+        value: gemini-2.5-flash
+      # Optional: Nugen domain model for Digital Twin explanations
+      - key: NUGEN_API_KEY
+        sync: false
+
+      # ─── Optional third-party keys (fall back to mocks when blank) ─────
       - key: OPENWEATHER_API_KEY
         sync: false
       - key: TICKETMASTER_API_KEY
         sync: false
-      - key: CORS_ORIGINS
-        sync: false # Set to Vercel frontend URL in production
+      - key: MAPBOX_API_KEY
+        sync: false
+      - key: NOMINATIM_USER_AGENT
+        sync: false
+      - key: WIKIMEDIA_USER_AGENT
+        sync: false
 
-  # Frontend (For reference - Render supports static/NextJS, but Vercel is the primary target)
-  - type: web
-    name: localens-web
-    env: node
-    region: oregon
-    plan: free
-    buildCommand: cd apps/web && npm install && npm run build
-    startCommand: cd apps/web && npm run start
-    envVars:
-      - key: NEXT_PUBLIC_API_BASE_URL
-        sync: false # Set to Render API URL
+      # ─── Admin account (used only by scripts/create_admin.py) ──────────
+      - key: ADMIN_SEED_EMAIL
+        sync: false
+      - key: ADMIN_SEED_PASSWORD
+        sync: false

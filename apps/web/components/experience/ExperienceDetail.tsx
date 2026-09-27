@@ -17,7 +17,7 @@ import type { Experience } from "@/types/experience";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
-import { MapSurface } from "@/components/common/MapSurface";
+import { LazyMapSurface as MapSurface } from "@/components/common/LazyMapSurface";
 import { DemoDataBadge } from "@/components/ui/DemoDataBadge";
 import { FeedbackControls } from "@/components/experience/FeedbackControls";
 import { ImageAttribution } from "@/components/experience/ImageAttribution";

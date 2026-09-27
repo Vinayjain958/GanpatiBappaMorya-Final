@@ -15,8 +15,11 @@ from collections.abc import Awaitable, Callable
 
 
 class TTLCache[T]:
-    def __init__(self, default_ttl_seconds: float) -> None:
+    def __init__(self, default_ttl_seconds: float, max_entries: int | None = None) -> None:
         self._default_ttl = default_ttl_seconds
+        # Optional bound for caches keyed by free-form input (e.g. search
+        # text); the oldest entry is evicted first. None = unbounded.
+        self._max_entries = max_entries
         self._store: dict[str, tuple[float, T]] = {}
 
     def get(self, key: str) -> T | None:
@@ -31,6 +34,10 @@ class TTLCache[T]:
 
     def set(self, key: str, value: T, ttl_seconds: float | None = None) -> None:
         ttl = self._default_ttl if ttl_seconds is None else ttl_seconds
+        self._store.pop(key, None)
+        if self._max_entries is not None:
+            while self._store and len(self._store) >= self._max_entries:
+                del self._store[next(iter(self._store))]
         self._store[key] = (time.monotonic() + ttl, value)
 
     def clear(self) -> None:

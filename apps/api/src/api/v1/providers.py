@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.catalog_cache import invalidate_catalog_cache
 from src.core.db import get_session
 from src.core.deps import CurrentProvider
 from src.repositories.experience_repository import ExperienceRepository
@@ -30,6 +31,7 @@ async def update_my_provider_profile(
         setattr(provider, field, value)
     await session.commit()
     await session.refresh(provider)
+    invalidate_catalog_cache()  # provider name/details appear on Discover cards
     return ProviderMeResponse.model_validate(provider)
 
 

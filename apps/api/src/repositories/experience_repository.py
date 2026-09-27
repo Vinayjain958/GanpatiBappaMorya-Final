@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from src.models.category import ExperienceCategory
 from src.models.experience import Experience
@@ -39,14 +39,24 @@ class ExperienceRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    def _base_query(self) -> Select[tuple[Experience]]:
-        return select(Experience).options(
-            selectinload(Experience.category),
-            selectinload(Experience.location),
-            selectinload(Experience.provider),
-            selectinload(Experience.opening_hours),
-            selectinload(Experience.availability_slots),
-        )
+    def _base_query(self, *, include_schedule: bool = True) -> Select[tuple[Experience]]:
+        # Many-to-one relations ride along in the same SELECT (joinedload),
+        # saving one database round trip each versus selectinload.
+        options = [
+            joinedload(Experience.category),
+            joinedload(Experience.location),
+            joinedload(Experience.provider),
+        ]
+        # Opening hours and availability slots are the heavy part (dozens of
+        # rows per experience). Callers that never read them — the Discover
+        # list — pass include_schedule=False; accessing them afterwards is an
+        # error, so feasibility/itinerary paths keep the default.
+        if include_schedule:
+            options += [
+                selectinload(Experience.opening_hours),
+                selectinload(Experience.availability_slots),
+            ]
+        return select(Experience).options(*options)
 
     def _apply_filters(
         self, query: Select[tuple[Experience]], filters: ExperienceFilters
@@ -102,12 +112,14 @@ class ExperienceRepository:
             )
         return query
 
-    async def search(self, filters: ExperienceFilters, *, cap: int = 1000) -> list[Experience]:
+    async def search(
+        self, filters: ExperienceFilters, *, cap: int = 1000, include_schedule: bool = True
+    ) -> list[Experience]:
         """Returns every row matching the given filters, up to `cap`, with
         no SQL-level ordering/pagination — the discovery service applies
         relevance/distance scoring, sorting, and pagination in Python once
         it has this bounded candidate set (see services/discovery.py)."""
-        query = self._apply_filters(self._base_query(), filters).limit(cap)
+        query = self._apply_filters(self._base_query(include_schedule=include_schedule), filters).limit(cap)
         rows = (await self._session.execute(query)).scalars().unique().all()
         return list(rows)
 

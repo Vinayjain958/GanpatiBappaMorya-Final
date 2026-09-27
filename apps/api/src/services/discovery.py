@@ -102,13 +102,16 @@ def _lexical_score(experience: Experience, query: str) -> float:
     return sum(text_match_score(query, text) * weight for text, weight in fields) / total_weight
 
 
-def _relevance_score(experience: Experience, query: str, distance_km: float | None) -> float:
+def _relevance_score(
+    experience: Experience, query: str, distance_km: float | None, lexical: float | None = None
+) -> float:
     """Combine query understanding with evidence-backed quality/location.
 
     The rating contribution is zero for synthetic/demo ratings. This is a
     deterministic catalog score, not traveler personalization or an AI claim.
     """
-    lexical = _lexical_score(experience, query)
+    if lexical is None:
+        lexical = _lexical_score(experience, query)
 
     rating_source = getattr(experience, "rating_source", None)
     rating = getattr(experience, "rating", None)
@@ -165,9 +168,14 @@ def _sort_items(items: list[_ScoredItem], sort: Sort, has_query: bool) -> list[_
 
 
 class ExperienceDiscoveryService:
-    def __init__(self, repository: ExperienceRepository, settings: Settings) -> None:
+    def __init__(
+        self, repository: ExperienceRepository, settings: Settings, *, include_schedule: bool = True
+    ) -> None:
         self._repository = repository
         self._settings = settings
+        # False only for callers that never touch opening hours/availability
+        # on the returned experiences (the plain catalog list endpoint).
+        self._include_schedule = include_schedule
 
     async def search(self, query: DiscoveryQuery) -> DiscoveryResult:
         has_location = query.lat is not None and query.lng is not None
@@ -205,7 +213,9 @@ class ExperienceDiscoveryService:
             filters.min_lat, filters.max_lat = box.min_lat, box.max_lat
             filters.min_lng, filters.max_lng = box.min_lng, box.max_lng
 
-        candidates = await self._repository.search(filters, cap=self._settings.discovery_candidate_cap)
+        candidates = await self._repository.search(
+            filters, cap=self._settings.discovery_candidate_cap, include_schedule=self._include_schedule
+        )
 
         scored: list[_ScoredItem] = []
         for experience in candidates:
@@ -227,7 +237,7 @@ class ExperienceDiscoveryService:
                 if query.radius_km is not None and distance_km > query.radius_km:
                     continue
 
-            combined = _relevance_score(experience, query.q or "", distance_km)
+            combined = _relevance_score(experience, query.q or "", distance_km, lexical=lexical_match)
             scored.append(_ScoredItem(experience=experience, distance_km=distance_km, relevance=combined))
 
         scored = _sort_items(scored, query.sort, bool(query.q))

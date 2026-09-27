@@ -30,8 +30,8 @@ from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 from src.core.db import async_session_factory, engine  # noqa: E402
 from src.models import Experience, ExperienceCategory, Location, Provider  # noqa: E402
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DATA_PATH = REPO_ROOT / "data" / "processed" / "overture_catalog_addon.json"
+API_ROOT = Path(__file__).resolve().parents[1]
+DATA_PATH = API_ROOT / "data" / "processed" / "overture_catalog_addon.json"
 ATTRIBUTION_TEMPLATE = (
     "Place data © {source_name} via the Overture Maps Foundation "
     "(Overture Places, release {version}), licensed {license}."

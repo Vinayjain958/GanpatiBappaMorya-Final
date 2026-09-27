@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Float, String
+from sqlalchemy import Float, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.core.db import Base
@@ -21,6 +21,7 @@ class Location(UUIDPrimaryKeyMixin, TimestampMixin, ProvenanceMixin, Base):
     """
 
     __tablename__ = "locations"
+    __table_args__ = (Index("ix_locations_latitude_longitude", "latitude", "longitude"),)
 
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)

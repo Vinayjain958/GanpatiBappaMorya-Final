@@ -14,6 +14,7 @@ from src.adapters.poi import MockPOIAdapter
 from src.adapters.routing import MockRoutingAdapter
 from src.core.ai import get_ai_adapter
 from src.core.app import create_app
+from src.core.catalog_cache import catalog_cache
 from src.core.db import Base, get_session
 from src.core.embedding import get_embedding_adapter
 from src.core.location import get_geocoding_adapter, get_poi_adapter, get_routing_adapter
@@ -47,6 +48,15 @@ def _override_location_adapters(app) -> None:
 def _override_ai_adapters(app) -> None:
     app.dependency_overrides[get_ai_adapter] = lambda: MockAIAdapter()
     app.dependency_overrides[get_embedding_adapter] = lambda: MockEmbeddingAdapter()
+
+
+@pytest.fixture(autouse=True)
+def _clear_catalog_cache():
+    # The catalog response cache is process-wide; each test builds its own
+    # database, so never let one test's cached list leak into the next.
+    catalog_cache.clear()
+    yield
+    catalog_cache.clear()
 
 
 @pytest.fixture()

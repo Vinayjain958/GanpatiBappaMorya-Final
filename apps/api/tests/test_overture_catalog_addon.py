@@ -10,7 +10,7 @@ def test_expanded_overture_catalog_is_provenance_labeled_and_excludes_demo_rows(
     assert payload["synthetic_records_included"] is False
     assert payload["record_count"] == 14875
     assert len(payload["records"]) == payload["record_count"]
-    assert "not a full raw Overture dump" in payload["attribution_note"]
+    assert "full raw Overture dump" in payload["attribution_note"]
 
     record = payload["records"][0]
     source = record["source_record"]

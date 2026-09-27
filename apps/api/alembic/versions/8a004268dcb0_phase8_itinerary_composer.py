@@ -107,7 +107,7 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_booking_requests_itinerary_id'), ['itinerary_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_booking_requests_provider_id'), ['provider_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_booking_requests_traveler_id'), ['traveler_id'], unique=False)
-        batch_op.create_index('ix_booking_requests_traveler_provider_experience_itinerary_status', ['traveler_id', 'provider_id', 'experience_id', 'itinerary_id', 'status'], unique=False)
+        batch_op.create_index('ix_booking_requests_trav_prov_exp_itin_status', ['traveler_id', 'provider_id', 'experience_id', 'itinerary_id', 'status'], unique=False)
 
     with op.batch_alter_table('conversation_sessions', schema=None) as batch_op:
         batch_op.add_column(sa.Column('last_search_candidates', sa.JSON(), nullable=True))
@@ -122,7 +122,7 @@ def downgrade() -> None:
         batch_op.drop_column('last_search_candidates')
 
     with op.batch_alter_table('booking_requests', schema=None) as batch_op:
-        batch_op.drop_index('ix_booking_requests_traveler_provider_experience_itinerary_status')
+        batch_op.drop_index('ix_booking_requests_trav_prov_exp_itin_status')
         batch_op.drop_index(batch_op.f('ix_booking_requests_traveler_id'))
         batch_op.drop_index(batch_op.f('ix_booking_requests_provider_id'))
         batch_op.drop_index(batch_op.f('ix_booking_requests_itinerary_id'))

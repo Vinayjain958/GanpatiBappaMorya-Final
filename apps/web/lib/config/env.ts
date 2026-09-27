@@ -4,7 +4,16 @@
  * imported into client components. See docs/AI_CONTEXT.md INV-5.
  */
 export const env = {
-  apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
+  // Production is ALWAYS same-origin (""): the browser calls /api/v1/* on the
+  // frontend host and next.config.ts proxies it to the backend. This keeps the
+  // HttpOnly refresh cookie first-party, so proxy.ts can see it — calling the
+  // backend's own domain directly would store the cookie there instead and
+  // every protected page would bounce to /login. NEXT_PUBLIC_API_BASE_URL is
+  // only honored in local development (and as a proxy target fallback).
+  apiBaseUrl:
+    process.env.NODE_ENV === "production"
+      ? ""
+      : (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"),
   appName: process.env.NEXT_PUBLIC_APP_NAME ?? "LocaLens",
   appVersion: process.env.NEXT_PUBLIC_APP_VERSION ?? "0.1.0",
   // No-API-key OSM-derived vector style by default (OpenFreeMap). Keep

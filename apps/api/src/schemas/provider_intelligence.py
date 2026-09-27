@@ -26,8 +26,8 @@ class ProviderKPIs(BaseModel):
 class TrendDataPoint(BaseModel):
     period_start: datetime
     period_end: datetime
-    observed: dict[str, int | float]
-    synthetic: dict[str, int | float]
+    observed: dict[str, int | float | None]
+    synthetic: dict[str, int | float | None]
 
 
 class DemandSegment(BaseModel):

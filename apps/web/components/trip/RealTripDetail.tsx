@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ItineraryMap } from "@/components/trip/ItineraryMap";
+import { LazyItineraryMap as ItineraryMap } from "@/components/trip/LazyItineraryMap";
 import { RealItineraryTimeline } from "@/components/trip/RealItineraryTimeline";
 import { WhatIfSimulationPanel } from "@/components/trip/WhatIfSimulationPanel";
 import { useActiveTripProgress } from "@/hooks/useActiveTripProgress";

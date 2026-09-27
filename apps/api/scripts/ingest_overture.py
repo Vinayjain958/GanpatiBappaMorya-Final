@@ -41,7 +41,7 @@ from src.core.category_map import OVERTURE_CATEGORY_MAP  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_RAW_DIR = REPO_ROOT / "data" / "raw"
-DATA_PROCESSED_DIR = REPO_ROOT / "data" / "processed"
+DATA_PROCESSED_DIR = REPO_ROOT / "apps" / "api" / "data" / "processed"
 
 # Overture release queried. Update when re-ingesting against a newer
 # release; keep the previous value recorded in data/README.md history.

@@ -15,8 +15,8 @@ export interface ProviderKPIs {
 export interface TrendDataPoint {
   period_start: string;
   period_end: string;
-  observed: Record<string, number>;
-  synthetic: Record<string, number>;
+  observed: Record<string, number | null>;
+  synthetic: Record<string, number | null>;
 }
 
 export interface DemandSegment {

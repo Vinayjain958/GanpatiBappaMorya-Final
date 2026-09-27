@@ -8,6 +8,8 @@ __pycache__
 .mypy_cache
 server_debug.log
 server_debug*.log
-localens_dev.db
+*.db
 .env
 .env.*
+tests
+*.db.backup

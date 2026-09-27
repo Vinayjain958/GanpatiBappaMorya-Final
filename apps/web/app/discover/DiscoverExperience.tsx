@@ -10,7 +10,7 @@ import { FilterBar } from "@/components/discovery/FilterBar";
 import { SourceDataDownloadButton } from "@/components/discovery/SourceDataDownloadButton";
 import { LocationBar } from "@/components/discovery/LocationBar";
 import { ExperienceCard } from "@/components/experience/ExperienceCard";
-import { MapSurface } from "@/components/common/MapSurface";
+import { LazyMapSurface as MapSurface } from "@/components/common/LazyMapSurface";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";

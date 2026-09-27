@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     Float,
+    Index,
     ForeignKey,
     Integer,
     String,
@@ -75,6 +76,9 @@ class Experience(UUIDPrimaryKeyMixin, TimestampMixin, ProvenanceMixin, Base):
     __tablename__ = "experiences"
     __table_args__ = (
         UniqueConstraint("source_type", "source_record_id", name="uq_experience_source_record"),
+        Index("ix_experiences_provider_id", "provider_id"),
+        Index("ix_experiences_category_id", "category_id"),
+        Index("ix_experiences_status", "status"),
     )
 
     provider_id: Mapped[str] = mapped_column(

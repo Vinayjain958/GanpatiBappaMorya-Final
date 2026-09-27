@@ -43,8 +43,8 @@ from src.models import (  # noqa: E402
     Provider,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-PROCESSED_PATH = REPO_ROOT / "data" / "processed" / "overture_experiences.json"
+API_ROOT = Path(__file__).resolve().parents[1]
+PROCESSED_PATH = API_ROOT / "data" / "processed" / "overture_experiences.json"
 
 SYNTHETIC_EXPERIENCE_TARGET = 65
 SYNTHETIC_PROVIDER_TARGET = 50

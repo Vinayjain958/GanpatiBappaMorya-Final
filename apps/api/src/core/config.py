@@ -8,14 +8,56 @@ fallback contract.
 
 from __future__ import annotations
 
+import json
+import os
+import re
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 from typing import Literal
 
-from pydantic import AnyHttpUrl, Field, SecretStr, TypeAdapter, model_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, TypeAdapter, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+
+# apps/api/src/core/config.py -> apps/api is parents[2], the repo root two
+# levels above that. Inside the Docker image the file lives at
+# /app/src/core/config.py, where there is no repo root above /app, so fall
+# back to /app instead of indexing past the filesystem root (which crashed
+# startup with IndexError).
+_API_ROOT = Path(__file__).resolve().parents[2]
+_REPOSITORY_ROOT = _API_ROOT.parents[1] if len(_API_ROOT.parents) >= 2 else _API_ROOT
+
+_DEFAULT_USER_AGENT = "GanpatiBappaMorya/1.0 (+https://github.com/Vinayjain958/GanpatiBappaMorya-Final)"
+
+_SUPABASE_DIRECT_HOST = re.compile(r"^db\.([a-z0-9]+)\.supabase\.co$")
+
+
+def _supabase_direct_to_pooler(url: str) -> str:
+    """Rewrite a direct Supabase URL (db.<ref>.supabase.co) to the Session pooler.
+
+    The direct host is IPv6-only; hosts without outbound IPv6 (e.g. Render)
+    fail with "Network is unreachable". The Session pooler (port 5432)
+    is IPv4 and keeps asyncpg's prepared statements working. The pooler host
+    is region-specific: SUPABASE_POOLER_HOST overrides the default below.
+    """
+    parts = urlsplit(url)
+    match = _SUPABASE_DIRECT_HOST.match(parts.hostname or "")
+    if not match:
+        return url
+    ref = match.group(1)
+    pooler_host = os.environ.get(
+        "SUPABASE_POOLER_HOST", "aws-0-ap-northeast-1.pooler.supabase.com"
+    ).strip()
+    user = unquote(parts.username or "postgres")
+    if "." not in user:
+        user = f"{user}.{ref}"
+    password = parts.password or ""
+    netloc = f"{quote(user, safe='.')}:{quote(unquote(password), safe='')}@{pooler_host}:5432"
+    query = parts.query
+    if "sslmode=" not in query and "ssl=" not in query:
+        query = f"{query}&sslmode=require" if query else "sslmode=require"
+    return urlunsplit((parts.scheme, netloc, parts.path or "/postgres", query, parts.fragment))
 
 
 class Settings(BaseSettings):
@@ -23,7 +65,8 @@ class Settings(BaseSettings):
         # Resolve local configuration from the repository rather than the
         # shell's current directory. Root defaults apply first, then the API
         # local file can override them (including a root blank value).
-        env_file=(_REPOSITORY_ROOT / ".env", _REPOSITORY_ROOT / "apps" / "api" / ".env"),
+        # Missing files are ignored (e.g. in the Docker image).
+        env_file=(_REPOSITORY_ROOT / ".env", _API_ROOT / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -115,12 +158,18 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
 
-    cors_allow_origins: list[str] = Field(
-        default_factory=lambda: [
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ]
-    )
+    # Read as raw text so any of these work in CORS_ALLOW_ORIGINS:
+    #   ["https://a.vercel.app","https://b.com"]  |  https://a.vercel.app,https://b.com
+    #   https://a.vercel.app
+    # (pydantic-settings would otherwise require strict JSON for a list field
+    # and crash the app at startup). Parsed by the cors_allow_origins property.
+    cors_allow_origins_raw: str = Field(default="", validation_alias="CORS_ALLOW_ORIGINS")
+    # Also allowed, in addition to the list above: the Vercel frontend's
+    # production and preview URLs, so a missing/mistyped CORS_ALLOW_ORIGINS
+    # never blocks the deployed site. The frontend normally proxies /api/v1
+    # same-origin (no CORS at all); this covers direct browser->API calls.
+    # Set CORS_ALLOW_ORIGIN_REGEX to "" to disable.
+    cors_allow_origin_regex: str = r"https://[a-z0-9-]+\.vercel\.app"
 
     # ─── Authentication (Phase 3) ──────────────────────────────────────────
     # Dev-only fallback secrets so the app still boots without a .env file.
@@ -283,6 +332,34 @@ class Settings(BaseSettings):
     # "no suitable image" beats "wrong image" (see enrichment script).
     wikimedia_min_match_score: float = 20.0
 
+    @field_validator("nominatim_user_agent", "wikimedia_user_agent")
+    @classmethod
+    def _real_user_agent(cls, value: str) -> str:
+        # Nominatim answers 403 to blank or placeholder contacts (e.g. the
+        # "you@example.com" template value), which takes location search down.
+        # Fall back to an identifier that points at this project's repo.
+        cleaned = value.strip().strip("'\"").strip()
+        if not cleaned or "you@example.com" in cleaned:
+            return _DEFAULT_USER_AGENT
+        return cleaned
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_database_url(cls, value: str) -> str:
+        # Hosted Postgres providers (Render, Neon, Supabase) hand out plain
+        # postgres:// / postgresql:// URLs, often with ?sslmode=require.
+        # The async engine needs the asyncpg driver, and asyncpg takes
+        # `ssl` rather than libpq's `sslmode` query parameter.
+        value = value.strip().strip("'\"").strip()
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                value = "postgresql+asyncpg://" + value[len(prefix):]
+                break
+        if value.startswith("postgresql+asyncpg://"):
+            value = _supabase_direct_to_pooler(value)
+            value = value.replace("sslmode=", "ssl=")
+        return value
+
     @model_validator(mode="after")
     def _validate_match_weights(self) -> Settings:
         total = sum([
@@ -325,6 +402,29 @@ class Settings(BaseSettings):
         return self
 
     @property
+    def cors_allow_origins(self) -> list[str]:
+        raw = self.cors_allow_origins_raw.strip()
+        items: list[str] = []
+        if raw.startswith("["):
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    items = [str(item) for item in parsed]
+            except ValueError:
+                items = raw.strip("[]").split(",")
+        else:
+            items = raw.split(",")
+        # Browsers send Origin without a trailing slash; "*" is never allowed
+        # together with credentialed requests.
+        origins = [item.strip().strip("'\"").strip().rstrip("/") for item in items]
+        origins = [origin for origin in origins if origin and origin != "*"]
+        return origins or ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+    @property
+    def nugen_enabled(self) -> bool:
+        return bool(self.nugen_api_key.get_secret_value().strip())
+
+    @property
     def is_production(self) -> bool:
         return self.app_env == "production"
 
@@ -342,10 +442,6 @@ class Settings(BaseSettings):
         # Browsers silently reject them without Secure, so only use the
         # prefix when the cookie will actually be sent as Secure.
         return "__Host-localens_refresh" if self.effective_cookie_secure else "localens_refresh"
-
-    @property
-    def nugen_enabled(self) -> bool:
-        return bool(self.nugen_api_key.get_secret_value().strip())
 
 
 @lru_cache
