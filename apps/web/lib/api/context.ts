@@ -3,14 +3,21 @@ import type {
   EventResponse,
   WeatherContextResponse,
   WeatherForecastEntry,
+  WeatherTestScenario,
 } from "@/types/api";
 
 /** GET /api/v1/context/weather — Phase 9, read-only, authenticated.
  * Normalized data only: never a raw OpenWeather payload or API key. Use
  * `context_status` to decide whether to show a "live" badge — never show
  * one for STALE/CACHED/UNAVAILABLE data. */
-export function getWeatherContext(lat: number, lng: number, signal?: AbortSignal) {
+export function getWeatherContext(
+  lat: number,
+  lng: number,
+  signal?: AbortSignal,
+  scenario?: WeatherTestScenario,
+) {
   const params = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+  if (scenario) params.set("scenario", scenario);
   return apiClient.get<WeatherContextResponse>(`/api/v1/context/weather?${params.toString()}`, { signal });
 }
 
@@ -22,12 +29,14 @@ export function getWeatherForecast(
   lng: number,
   maxEntries = 8,
   signal?: AbortSignal,
+  scenario?: WeatherTestScenario,
 ) {
   const params = new URLSearchParams({
     lat: String(lat),
     lng: String(lng),
     max_entries: String(maxEntries),
   });
+  if (scenario) params.set("scenario", scenario);
   return apiClient.get<WeatherForecastEntry[]>(
     `/api/v1/context/weather/forecast?${params.toString()}`,
     { signal },

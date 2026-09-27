@@ -12,8 +12,10 @@ import type { ReplanApplyResult, SimulationResult, WhatIfScenarioRequest } from 
 
 interface WhatIfSimulationPanelProps {
   itinerary: ApiItinerary;
-  onApplied: () => void;
+  onApplied: (result: ReplanApplyResult) => void;
   onResult: (result: SimulationResult | null) => void;
+  initialWeatherIntensity?: "none" | NonNullable<WhatIfScenarioRequest["weather"]>["intensity"];
+  initialSocialMode?: "none" | "recent" | "hypothetical";
 }
 
 type StopOption = {
@@ -84,15 +86,15 @@ function evidenceValue(value: number | null, suffix = "") {
   return value === null || !Number.isFinite(value) ? "Not provided" : `${value}${suffix}`;
 }
 
-export function WhatIfSimulationPanel({ itinerary, onApplied, onResult }: WhatIfSimulationPanelProps) {
+export function WhatIfSimulationPanel({ itinerary, onApplied, onResult, initialWeatherIntensity = "none", initialSocialMode = "none" }: WhatIfSimulationPanelProps) {
   const stops = useMemo(() => stopOptions(itinerary), [itinerary]);
   const locatedStops = useMemo(
     () => stops.filter((stop) => stop.latitude !== null && stop.longitude !== null),
     [stops],
   );
-  const [weatherIntensity, setWeatherIntensity] = useState<"none" | NonNullable<WhatIfScenarioRequest["weather"]>["intensity"]>("none");
-  const [weatherStart, setWeatherStart] = useState("00:00");
-  const [socialMode, setSocialMode] = useState<"none" | "recent" | "hypothetical">("none");
+  const [weatherIntensity, setWeatherIntensity] = useState<"none" | NonNullable<WhatIfScenarioRequest["weather"]>["intensity"]>(initialWeatherIntensity);
+  const [weatherStart, setWeatherStart] = useState(() => (typeof itinerary.start_time === "string" ? itinerary.start_time.slice(0, 5) : "") || "00:00");
+  const [socialMode, setSocialMode] = useState<"none" | "recent" | "hypothetical">(initialSocialMode);
   const [socialTargetId, setSocialTargetId] = useState(() => locatedStops[0]?.id ?? "");
   const [socialTopic, setSocialTopic] = useState<NonNullable<WhatIfScenarioRequest["hypothetical_social"]>["topic"]>("flooding");
   const [routeKind, setRouteKind] = useState<"none" | "congestion" | "road_disruption" | "temporary_closure" | "walking_condition">("none");
@@ -184,7 +186,7 @@ export function WhatIfSimulationPanel({ itinerary, onApplied, onResult }: WhatIf
         setNotice(applied.message ?? applied.context_summary ?? "The replanning service handled the confirmed scenario.");
         setResult(null);
         onResult(null);
-        onApplied();
+        onApplied(applied);
       }
     } catch (cause) {
       if (cause instanceof ApiError && (cause.status === 409 || cause.status === 410)) {
@@ -212,65 +214,65 @@ export function WhatIfSimulationPanel({ itinerary, onApplied, onResult }: WhatIf
         <Badge tone="neutral">Backend evaluated</Badge>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <fieldset className="space-y-2 rounded-2xl border border-line bg-surface p-3.5">
+      <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <fieldset className="min-w-0 space-y-2 rounded-2xl border border-line bg-surface p-3.5">
           <legend className="px-1 text-sm font-semibold text-ink">Weather assumption</legend>
-          <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">Condition
-            <select className="h-10 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={weatherIntensity} onChange={(event) => setWeatherIntensity(event.target.value as typeof weatherIntensity)}>
+          <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted">Condition
+            <select className="h-10 w-full min-w-0 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={weatherIntensity} onChange={(event) => setWeatherIntensity(event.target.value as typeof weatherIntensity)}>
               <option value="none">No weather change</option>
               {WEATHER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
-          {weatherIntensity !== "none" ? <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">Starting at
-            <input className="h-10 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" type="time" value={weatherStart} onChange={(event) => setWeatherStart(event.target.value)} />
+          {weatherIntensity !== "none" ? <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted">Starting at
+            <input className="h-10 w-full min-w-0 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" type="time" value={weatherStart} onChange={(event) => setWeatherStart(event.target.value)} />
           </label> : null}
           <p className="text-xs leading-5 text-ink-subtle">Weather inputs are shown as hypothetical and are not forecasts.</p>
         </fieldset>
 
-        <fieldset className="space-y-2 rounded-2xl border border-line bg-surface p-3.5">
+        <fieldset className="min-w-0 space-y-2 rounded-2xl border border-line bg-surface p-3.5">
           <legend className="px-1 text-sm font-semibold text-ink">Area context</legend>
-          <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">Context type
-            <select className="h-10 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={socialMode} onChange={(event) => setSocialMode(event.target.value as typeof socialMode)}>
+          <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted">Context type
+            <select className="h-10 w-full min-w-0 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={socialMode} onChange={(event) => setSocialMode(event.target.value as typeof socialMode)}>
               <option value="none">No social context</option>
               <option value="recent">Fetch recent public signals</option>
               <option value="hypothetical">Assume a social disruption</option>
             </select>
           </label>
-          {socialMode !== "none" ? <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">Around stop
-            <select className="h-10 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={socialTargetId} onChange={(event) => setSocialTargetId(event.target.value)}>
+          {socialMode !== "none" ? <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted">Around stop
+            <select className="h-10 w-full min-w-0 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={socialTargetId} onChange={(event) => setSocialTargetId(event.target.value)}>
               {locatedStops.map((stop) => <option key={stop.id} value={stop.id}>{stop.sequence}. {stop.title}</option>)}
             </select>
           </label> : null}
-          {socialMode === "hypothetical" ? <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">Assumed topic
-            <select className="h-10 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={socialTopic} onChange={(event) => setSocialTopic(event.target.value as typeof socialTopic)}>
+          {socialMode === "hypothetical" ? <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted">Assumed topic
+            <select className="h-10 w-full min-w-0 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={socialTopic} onChange={(event) => setSocialTopic(event.target.value as typeof socialTopic)}>
               <option value="flooding">Flooding / waterlogging</option><option value="road_disruption">Road disruption</option><option value="crowding">Crowding</option><option value="event_disruption">Event disruption</option><option value="weather">Weather</option><option value="heat">Heat</option><option value="wind">Wind</option>
             </select>
           </label> : null}
           <p className="text-xs leading-5 text-ink-subtle">Recent signals are opt-in, area-level and advisory. No post content is shown.</p>
         </fieldset>
 
-        <fieldset className="space-y-2 rounded-2xl border border-line bg-surface p-3.5">
+        <fieldset className="min-w-0 space-y-2 rounded-2xl border border-line bg-surface p-3.5">
           <legend className="px-1 text-sm font-semibold text-ink">Route assumption</legend>
-          <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">Route condition
-            <select className="h-10 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={routeKind} onChange={(event) => setRouteKind(event.target.value as typeof routeKind)}>
+          <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted">Route condition
+            <select className="h-10 w-full min-w-0 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={routeKind} onChange={(event) => setRouteKind(event.target.value as typeof routeKind)}>
               <option value="none">No route change</option><option value="congestion">Assume a delay</option><option value="road_disruption">Road disruption</option><option value="temporary_closure">Temporary closure</option><option value="walking_condition">Walking condition</option>
             </select>
           </label>
-          {routeKind !== "none" ? <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">To stop
-            <select className="h-10 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={routeTargetId} onChange={(event) => setRouteTargetId(event.target.value)}>
+          {routeKind !== "none" ? <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted">To stop
+            <select className="h-10 w-full min-w-0 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={routeTargetId} onChange={(event) => setRouteTargetId(event.target.value)}>
               {locatedStops.map((stop) => <option key={stop.id} value={stop.id}>{stop.sequence}. {stop.title}</option>)}
             </select>
           </label> : null}
-          {routeKind === "congestion" ? <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">Assumed delay (minutes)
-            <input className="h-10 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" type="number" min={0} max={240} value={delayMinutes} onChange={(event) => setDelayMinutes(Number(event.target.value))} />
+          {routeKind === "congestion" ? <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted">Assumed delay (minutes)
+            <input className="h-10 w-full min-w-0 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" type="number" min={0} max={240} value={delayMinutes} onChange={(event) => setDelayMinutes(Number(event.target.value))} />
           </label> : null}
           <p className="text-xs leading-5 text-ink-subtle">Closures are not sent to OSRM; no alternate route is fabricated.</p>
         </fieldset>
 
-        <fieldset className="space-y-2 rounded-2xl border border-line bg-surface p-3.5">
+        <fieldset className="min-w-0 space-y-2 rounded-2xl border border-line bg-surface p-3.5">
           <legend className="px-1 text-sm font-semibold text-ink">Experience assumption</legend>
-          <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">Stop status
-            <select className="h-10 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={unavailableTargetId} onChange={(event) => setUnavailableTargetId(event.target.value)}>
+          <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted">Stop status
+            <select className="h-10 w-full min-w-0 rounded-xl border border-line-strong bg-surface-raised px-3 text-sm text-ink" value={unavailableTargetId} onChange={(event) => setUnavailableTargetId(event.target.value)}>
               <option value="">No experience change</option>
               {stops.map((stop) => <option key={stop.id} value={stop.id}>{stop.sequence}. {stop.title} · assume unavailable</option>)}
             </select>
@@ -325,6 +327,7 @@ export function WhatIfSimulationPanel({ itinerary, onApplied, onResult }: WhatIf
             </Button>
           </div>
         </div>
+        {weatherIntensity !== "none" && result.scenario.stops.length > 0 && result.scenario.stops.every((stop) => !stop.weather_sensitivity || stop.weather_sensitivity === "UNKNOWN" || !stop.weather_policy || stop.weather_policy === "NONE") ? <p className="rounded-xl bg-warning-soft px-3.5 py-3 text-sm leading-6 text-ink" role="status">This itinerary has no recorded weather-sensitivity rules for its stops. The preview keeps feasibility unchanged until verified stop metadata supports a weather impact.</p> : null}
 
         <section className="rounded-2xl border border-line bg-surface p-4" aria-label="Simulation metadata and change summary">
           <h4 className="text-sm font-semibold text-ink">Simulation details</h4>
@@ -341,6 +344,31 @@ export function WhatIfSimulationPanel({ itinerary, onApplied, onResult }: WhatIf
           </dl>
           <p className="mt-3 border-t border-line pt-3 text-xs leading-5 text-ink-muted">{result.simulation_confidence_note}</p>
         </section>
+
+        {result.domain_intelligence ? <section className="rounded-2xl border border-line bg-surface p-4" aria-label="Domain intelligence interpretation">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold text-ink">Domain intelligence</h4>
+            <Badge tone="neutral">{result.domain_intelligence.provider === "nugen" ? `Nugen · ${result.domain_intelligence.model_id ?? "model"}` : "Local preview"}</Badge>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-ink">{result.domain_intelligence.summary}</p>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-surface-sunken p-3"><dt className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Suitability</dt><dd className="mt-1 text-sm leading-6 text-ink">{result.domain_intelligence.suitability_assessment ?? "Not returned"}</dd></div>
+            <div className="rounded-xl bg-surface-sunken p-3"><dt className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Disruption</dt><dd className="mt-1 text-sm leading-6 text-ink">{result.domain_intelligence.disruption_assessment ?? "Not returned"}</dd></div>
+            <div className="rounded-xl bg-surface-sunken p-3 sm:col-span-2"><dt className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Recommendation</dt><dd className="mt-1 text-sm leading-6 text-ink">{result.domain_intelligence.recommendation ?? "Not returned"}</dd></div>
+          </dl>
+          {result.domain_intelligence.impacts.length > 0 ? <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-ink-muted">
+            {result.domain_intelligence.impacts.map((impact, index) => <li key={`${index}-${impact}`}>{impact}</li>)}
+          </ul> : null}
+          {result.domain_intelligence.uncertainty ? <p className="mt-3 text-xs leading-5 text-ink-muted"><span className="font-medium text-ink">Uncertainty: </span>{result.domain_intelligence.uncertainty}</p> : null}
+          {result.domain_intelligence.reason_codes.length > 0 ? <p className="mt-2 text-xs text-ink-muted"><span className="font-medium text-ink">Reason codes: </span>{result.domain_intelligence.reason_codes.join(", ")}</p> : null}
+          {result.domain_intelligence.confidence_score !== null ? <p className="mt-2 text-xs text-ink-muted">Model-reported confidence score: {result.domain_intelligence.confidence_score} (advisory metadata, not a feasibility score)</p> : null}
+          {result.domain_intelligence.finish_reason || result.domain_intelligence.usage ? <p className="mt-2 text-xs text-ink-muted">
+            {result.domain_intelligence.finish_reason ? `Finish reason: ${result.domain_intelligence.finish_reason}` : null}
+            {result.domain_intelligence.finish_reason && result.domain_intelligence.usage ? " · " : null}
+            {result.domain_intelligence.usage ? `Usage: ${Object.entries(result.domain_intelligence.usage).map(([key, value]) => `${key} ${value}`).join(" · ")}` : null}
+          </p> : null}
+          <p className="mt-3 border-t border-line pt-3 text-xs leading-5 text-ink-muted">Interpretation only. LocaLens deterministic feasibility and trip state remain authoritative; this analysis does not change the itinerary.</p>
+        </section> : null}
 
         <div className="grid gap-3 lg:grid-cols-2">
           <section className="rounded-2xl border border-line bg-surface p-4" aria-label="Weather comparison">
@@ -429,7 +457,7 @@ export function WhatIfSimulationPanel({ itinerary, onApplied, onResult }: WhatIf
             <p className="mt-1 text-xs text-ink-subtle">Ranking score {alternative.ranking_score.toFixed(3)} · for stop {stops.find((stop) => stop.id === alternative.for_item_id)?.title ?? alternative.for_item_id}</p>
             {alternative.is_synthetic ? <Badge className="mt-2" tone="warning">Development catalog entry</Badge> : null}
           </li>)}</ul>
-        </section> : null}
+        </section> : <p className="rounded-xl bg-surface-sunken px-3.5 py-3 text-sm text-ink-muted" role="status">No alternatives were returned because the deterministic preview found no affected stop that needs replacing.</p>}
 
         <section className="rounded-2xl border border-line bg-surface p-4" aria-label="Scenario impact details">
           <h4 className="text-sm font-semibold text-ink">Impact details</h4>

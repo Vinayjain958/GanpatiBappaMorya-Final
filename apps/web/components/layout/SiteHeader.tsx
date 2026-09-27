@@ -19,7 +19,7 @@ function useVisibleNav() {
     if (!user) return primaryNav;
 
     if (user.role === "provider") {
-      return primaryNav.filter((item) => !["/trip", "/saved", "/collab"].includes(item.href));
+      return primaryNav.filter((item) => !["/trip", "/saved", "/collab", "/showcase"].includes(item.href));
     }
 
     return primaryNav.filter((item) => item.href !== "/provider");

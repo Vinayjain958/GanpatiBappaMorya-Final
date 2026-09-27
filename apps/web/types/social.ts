@@ -27,6 +27,7 @@ export interface SocialSignalCluster {
 export interface SocialSignalsResponse {
   status: "AVAILABLE" | "NO_SIGNALS" | "UNAVAILABLE" | "RATE_LIMITED" | "STALE";
   queried_location: string | null;
+  location_source?: "reverse_geocoder" | "catalog_record" | "unavailable";
   radius_km: number;
   generated_at: string;
   clusters: SocialSignalCluster[];

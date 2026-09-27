@@ -9,15 +9,21 @@ fallback contract.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, TypeAdapter, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file="../../.env",
+        # Resolve local configuration from the repository rather than the
+        # shell's current directory. Root defaults apply first, then the API
+        # local file can override them (including a root blank value).
+        env_file=(_REPOSITORY_ROOT / ".env", _REPOSITORY_ROOT / "apps" / "api" / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -39,6 +45,17 @@ class Settings(BaseSettings):
     gemini_live_token_ttl_seconds: int = 60
     gemini_live_session_ttl_seconds: int = 1800
     gemini_min_interval_seconds: float = 0.5
+    # Nugen is an optional domain-reasoning provider used only for concise
+    # explanations in the Digital Twin flow. It never replaces Gemini's
+    # conversation extraction, voice, or narration adapters.
+    nugen_api_key: SecretStr = SecretStr("")
+    nugen_model_endpoint: AnyHttpUrl = Field(
+        default_factory=lambda: TypeAdapter(AnyHttpUrl).validate_python(
+            "https://api.nugen.in/api/v3/inference/chat/completions/model_01m3gmmw27xbf7m"
+        )
+    )
+    nugen_model_id: str = Field(default="model_01m3gmmw27xbf7m", min_length=1, max_length=120)
+    nugen_request_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
     # Bounded recent-turn window sent to the model on every text turn —
     # never unlimited conversation history (see docs/DECISIONS.md ADR-033).
     conversation_history_window: int = 12
@@ -301,6 +318,12 @@ class Settings(BaseSettings):
             )
         return self
 
+    @model_validator(mode="after")
+    def _validate_nugen_configuration(self) -> Settings:
+        if self.nugen_enabled and not self.nugen_model_id.strip():
+            raise ValueError("NUGEN_MODEL_ID is required when Nugen is enabled")
+        return self
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
@@ -319,6 +342,10 @@ class Settings(BaseSettings):
         # Browsers silently reject them without Secure, so only use the
         # prefix when the cookie will actually be sent as Secure.
         return "__Host-localens_refresh" if self.effective_cookie_secure else "localens_refresh"
+
+    @property
+    def nugen_enabled(self) -> bool:
+        return bool(self.nugen_api_key.get_secret_value().strip())
 
 
 @lru_cache

@@ -164,6 +164,18 @@ export function ItineraryComposerForm({
   const previewStatus = !date || !hasDraftStops ? "idle"
     : preview ? "checked"
       : previewErrorKey === previewKey ? "error" : "checking";
+  const suggestedEndTime = preview?.issues.some((issue) => issue.code === "OUTSIDE_REQUESTED_WINDOW")
+    ? preview.items.reduce<string | null>((latest, item) => {
+      const itemDate = item.planned_end.slice(0, 10);
+      const itemTime = item.planned_end.slice(11, 16);
+      if (itemDate !== date || !/^\d{2}:\d{2}$/.test(itemTime)) return latest;
+      return !latest || itemTime > latest ? itemTime : latest;
+    }, null)
+    : null;
+  const endTimeToApply = suggestedEndTime && suggestedEndTime > endTime ? suggestedEndTime : null;
+  const compositionBlockedByPreview = hasDraftStops && (
+    previewStatus === "checking" || (previewStatus === "checked" && preview?.valid === false)
+  );
   const draftMapsStops: GoogleMapsRouteStop[] = preview?.items.length
     ? preview.items.flatMap<GoogleMapsRouteStop>((item) => {
       const experience = selectedExperiences.find((candidate) => candidate.id === item.experience_id);
@@ -253,12 +265,6 @@ export function ItineraryComposerForm({
             if (!maxBudget.trim() && result.estimated_total_cost != null) {
               setMaxBudget(String(Math.ceil(result.estimated_total_cost)));
             }
-            const latestEnd = result.items.reduce<string | null>((latest, item) => {
-              const timeValue = item.planned_end.slice(11, 16);
-              if (!/^\d{2}:\d{2}$/.test(timeValue)) return latest;
-              return !latest || timeValue > latest ? timeValue : latest;
-            }, null);
-            if (latestEnd && latestEnd !== endTime) setEndTime(latestEnd);
           }
         })
         .catch(() => {
@@ -351,6 +357,13 @@ export function ItineraryComposerForm({
 
     if (!date) {
       setError("Please choose a date.");
+      return;
+    }
+
+    if (compositionBlockedByPreview) {
+      setValidationMessage(previewStatus === "checking"
+        ? "Wait for the schedule check to finish before composing."
+        : "This draft fails one or more schedule checks. Adjust the time window or stops before composing.");
       return;
     }
 
@@ -661,7 +674,32 @@ export function ItineraryComposerForm({
             </p>
           ) : null}
 
-          <Button type="submit" loading={submitting} className="w-full">
+          {hasDraftStops && previewStatus === "checking" ? (
+            <p className="rounded-xl bg-surface-sunken px-3.5 py-3 text-sm text-ink-muted" role="status">
+              Checking the current schedule before composing…
+            </p>
+          ) : null}
+          {hasDraftStops && previewStatus === "checked" && !preview?.valid ? (
+            <p className="rounded-xl bg-warning-soft px-3.5 py-3 text-sm text-warning" role="status">
+              Resolve the schedule warnings above before composing this itinerary.
+            </p>
+          ) : null}
+          {endTimeToApply ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEndTime(endTimeToApply);
+                setValidationMessage(null);
+              }}
+              className="w-full"
+            >
+              Extend the time window to {endTimeToApply}
+            </Button>
+          ) : null}
+
+          <Button type="submit" disabled={compositionBlockedByPreview} loading={submitting} className="w-full">
             Compose itinerary
           </Button>
 

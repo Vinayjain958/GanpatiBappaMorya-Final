@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
-import type { WeatherContextResponse, WeatherForecastEntry } from "@/types/api";
+import type { WeatherContextResponse, WeatherForecastEntry, WeatherTestScenario } from "@/types/api";
+
+const SHOW_WEATHER_TEST_SCENARIOS = process.env.NODE_ENV !== "production";
 
 interface WeatherCardProps {
   latitude: number | null;
@@ -36,9 +38,10 @@ export function WeatherCard({ latitude, longitude, locationLabel }: WeatherCardP
     forecastError: boolean;
   } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [testScenario, setTestScenario] = useState<WeatherTestScenario | null>(null);
   const coordinatesAvailable = latitude !== null && longitude !== null
     && Number.isFinite(latitude) && Number.isFinite(longitude);
-  const requestKey = `${latitude ?? ""}:${longitude ?? ""}:${refreshKey}`;
+  const requestKey = `${latitude ?? ""}:${longitude ?? ""}:${refreshKey}:${testScenario ?? ""}`;
   const loading = coordinatesAvailable && result?.key !== requestKey;
   const current = result?.key === requestKey ? result.current : null;
   const forecast = result?.key === requestKey ? result.forecast : [];
@@ -51,10 +54,13 @@ export function WeatherCard({ latitude, longitude, locationLabel }: WeatherCardP
       return () => controller.abort();
     }
 
-    void Promise.allSettled([
-      getWeatherContext(latitude, longitude, controller.signal),
-      getWeatherForecast(latitude, longitude, 8, controller.signal),
-    ]).then(([currentResult, forecastResult]) => {
+    const currentRequest = testScenario
+      ? getWeatherContext(latitude, longitude, controller.signal, testScenario)
+      : getWeatherContext(latitude, longitude, controller.signal);
+    const forecastRequest = testScenario
+      ? getWeatherForecast(latitude, longitude, 8, controller.signal, testScenario)
+      : getWeatherForecast(latitude, longitude, 8, controller.signal);
+    void Promise.allSettled([currentRequest, forecastRequest]).then(([currentResult, forecastResult]) => {
       if (controller.signal.aborted) return;
       setResult({
         key: requestKey,
@@ -66,7 +72,7 @@ export function WeatherCard({ latitude, longitude, locationLabel }: WeatherCardP
     });
 
     return () => controller.abort();
-  }, [coordinatesAvailable, latitude, longitude, refreshKey, requestKey]);
+  }, [coordinatesAvailable, latitude, longitude, refreshKey, requestKey, testScenario]);
 
   const updatedAt = current
     ? formatWeatherTime(current.fetched_at ?? current.last_updated_at)
@@ -116,7 +122,31 @@ export function WeatherCard({ latitude, longitude, locationLabel }: WeatherCardP
               <RefreshCw className="size-4" aria-hidden="true" />
             </Button>
           </div>
+          {SHOW_WEATHER_TEST_SCENARIOS ? (
+            <label className="flex flex-col gap-1 text-xs text-ink-muted">
+              <span className="font-medium">Weather test scenario · development only</span>
+              <select
+                aria-label="Weather test scenario"
+                className="h-9 rounded-lg border border-line-strong bg-surface px-2 text-xs text-ink"
+                value={testScenario ?? ""}
+                onChange={(event) => setTestScenario((event.target.value || null) as WeatherTestScenario | null)}
+                disabled={!coordinatesAvailable || loading}
+              >
+                <option value="">Use configured weather source</option>
+                <option value="SCENARIO_CLEAR">SCENARIO_CLEAR · Clear</option>
+                <option value="SCENARIO_RAIN">SCENARIO_RAIN · Rain</option>
+                <option value="SCENARIO_STORM">SCENARIO_STORM · Storm</option>
+                <option value="SCENARIO_HEAT">SCENARIO_HEAT · Heat</option>
+              </select>
+            </label>
+          ) : null}
         </div>
+
+        {testScenario ? (
+          <p className="rounded-xl bg-surface-sunken px-3.5 py-2.5 text-xs text-ink-muted" role="status">
+            {testScenario} is a temporary test input returned as MOCK. It is not OpenWeather data and is not saved.
+          </p>
+        ) : null}
 
         {!coordinatesAvailable ? (
           <p className="rounded-xl bg-surface-sunken px-3.5 py-3 text-sm text-ink-muted" role="status">

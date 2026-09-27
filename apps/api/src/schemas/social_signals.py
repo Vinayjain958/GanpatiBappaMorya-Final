@@ -38,6 +38,7 @@ class SocialSignalsResponse(BaseModel):
 
     status: Literal["AVAILABLE", "NO_SIGNALS", "UNAVAILABLE", "RATE_LIMITED", "STALE"]
     queried_location: str | None = None
+    location_source: Literal["reverse_geocoder", "catalog_record", "unavailable"] = "unavailable"
     radius_km: float = Field(ge=1, le=50)
     generated_at: datetime
     clusters: list[SocialSignalClusterResponse]

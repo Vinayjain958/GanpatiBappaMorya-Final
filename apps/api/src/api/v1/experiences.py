@@ -13,12 +13,13 @@ from src.adapters.errors import AdapterError
 from src.adapters.routing import OSRMRoutingAdapter, RoutingAdapter
 from src.core.config import Settings, get_settings
 from src.core.db import get_session
-from src.core.deps import CurrentProvider, CurrentUser
+from src.core.deps import CurrentProvider, CurrentUser, require_traveler
 from src.core.embedding import get_embedding_adapter
 from src.core.errors import ApiError
 from src.core.location import get_routing_adapter
 from src.models.experience import Experience
 from src.models.provider import Provider
+from src.models.user import User
 from src.repositories.experience_repository import ExperienceRepository
 from src.repositories.interaction_repository import InteractionRepository
 from src.repositories.review_repository import ReviewRepository
@@ -47,8 +48,6 @@ from src.schemas.source_data import (
 from src.services import experience as experience_service
 from src.services.discovery import DiscoveryQuery, ExperienceDiscoveryService
 from src.services.discovery_pipeline import DiscoveryPipelineService
-from src.core.deps import require_traveler
-from src.models.user import User
 
 router = APIRouter(prefix="/experiences", tags=["experiences"])
 
@@ -183,7 +182,7 @@ def _load_overture_catalog_addon() -> OverturePlaceDatasetResponse:
             "with per-record source IDs, source names, licenses, versions, and URLs. LocaLens category "
             "mapping and estimates are separated under localens_enrichment. The archived catalog did not "
             "retain Overture primary-category or operating-status values for these rows; those fields are "
-            "null. This is not a live feed or a full raw Overture dump."
+            "null. It is not a full raw Overture dump and is not a live feed."
         ),
         records=records,
     )

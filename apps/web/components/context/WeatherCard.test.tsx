@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WeatherContextResponse, WeatherForecastEntry } from "@/types/api";
+import type { WeatherContextResponse, WeatherForecastEntry, WeatherTestScenario } from "@/types/api";
 
 const { getWeatherContextMock, getWeatherForecastMock } = vi.hoisted(() => ({
   getWeatherContextMock: vi.fn(),
@@ -76,6 +76,43 @@ describe("WeatherCard", () => {
     expect(container.textContent).toContain("27°C");
     expect(container.textContent).toContain("Next forecast updates");
     expect(getWeatherContextMock).toHaveBeenCalledWith(18.93, 72.83, expect.any(AbortSignal));
+  });
+
+  it("refetches and visibly changes for each development scenario returned by the API client", async () => {
+    const scenarios: { name: WeatherTestScenario; temperature: number; condition: string }[] = [
+      { name: "SCENARIO_CLEAR", temperature: 28, condition: "Clear" },
+      { name: "SCENARIO_RAIN", temperature: 26, condition: "Rain" },
+      { name: "SCENARIO_STORM", temperature: 24, condition: "Thunderstorm" },
+      { name: "SCENARIO_HEAT", temperature: 40, condition: "Clear" },
+    ];
+    getWeatherContextMock.mockImplementation((_lat, _lng, _signal, scenario: WeatherTestScenario | undefined) => {
+      const selected = scenarios.find((entry) => entry.name === scenario);
+      return Promise.resolve(selected
+        ? { ...weather, temperature_c: selected.temperature, condition: selected.condition, source: "MOCK", context_status: "MOCK" }
+        : weather);
+    });
+    getWeatherForecastMock.mockResolvedValue([forecast]);
+
+    await renderCard();
+    const select = container.querySelector<HTMLSelectElement>('select[aria-label="Weather test scenario"]');
+    expect(select).not.toBeNull();
+
+    for (const scenario of scenarios) {
+      await act(async () => {
+        select!.value = scenario.name;
+        select!.dispatchEvent(new Event("change", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(container.textContent).toContain(`${scenario.temperature}°C`);
+      expect(container.textContent).toContain(scenario.condition);
+      expect(container.textContent).toContain(`${scenario.name} is a temporary test input returned as MOCK`);
+      expect(getWeatherContextMock).toHaveBeenLastCalledWith(
+        18.93,
+        72.83,
+        expect.any(AbortSignal),
+        scenario.name,
+      );
+    }
   });
 
   it("does not call weather APIs when verified coordinates are missing", async () => {

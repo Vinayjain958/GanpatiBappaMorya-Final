@@ -76,6 +76,8 @@ async def _to_itinerary_response(
             resp.short_description = experience.short_description
             resp.category_name = experience.category.name
             resp.location_place_name = experience.location.place_name
+            resp.location_locality = experience.location.locality
+            resp.location_city = experience.location.city
             resp.location_latitude = experience.location.latitude
             resp.location_longitude = experience.location.longitude
             resp.availability_data_is_synthetic = any(

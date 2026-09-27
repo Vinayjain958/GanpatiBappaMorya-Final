@@ -42,6 +42,8 @@ class SocialSignalService:
         radius_km: float,
         topics: list[str] | None = None,
         since_hours: int | None = None,
+        fallback_locality: str | None = None,
+        fallback_city: str | None = None,
     ) -> SocialSignalsResponse:
         selected_topics = set(topics or [])
         if selected_topics - _ALL_TOPICS:
@@ -51,7 +53,7 @@ class SocialSignalService:
             raise ValueError("since_hours must be within the configured social-signal lookback window")
         key = (
             f"{latitude:.6f}:{longitude:.6f}:{radius_km:.1f}:{lookback_hours}:"
-            f"{','.join(sorted(selected_topics))}"
+            f"{','.join(sorted(selected_topics))}:{fallback_locality or ''}:{fallback_city or ''}"
         )
         cached = self._get_cached(key)
         if cached is not None:
@@ -70,7 +72,20 @@ class SocialSignalService:
             place = await self._geocoder.reverse(latitude, longitude)
         except Exception:  # noqa: BLE001 — optional context must degrade safely
             place = None
-        if place is None:
+
+        area_name = (place.locality or place.city) if place is not None else None
+        aliases = [name for name in (place.locality, place.city) if name] if place is not None else []
+        location_source = "reverse_geocoder"
+        if not area_name:
+            # Itinerary item callers may provide catalog-backed locality/city
+            # resolved from an owned stop by the API route. This keeps public
+            # signals usable when reverse geocoding is unavailable without
+            # inventing a place name from raw coordinates.
+            area_name = (fallback_locality or fallback_city or "").strip() or None
+            aliases = [name.strip() for name in (fallback_locality, fallback_city) if name and name.strip()]
+            location_source = "catalog_record"
+
+        if area_name is None:
             return self._stale_or_empty(
                 key,
                 "UNAVAILABLE",
@@ -78,9 +93,7 @@ class SocialSignalService:
                 now,
                 "This area could not be verified by the existing location service. No social map markers were added.",
             )
-
-        area_name = place.locality or place.city
-        if not area_name or len(area_name.strip()) < 2:
+        if len(area_name.strip()) < 2:
             return self._stale_or_empty(
                 key,
                 "UNAVAILABLE",
@@ -88,7 +101,6 @@ class SocialSignalService:
                 now,
                 "The selected area has no verified locality name. No social map markers were added.",
             )
-        aliases = [name for name in (place.locality, place.city) if name]
 
         try:
             normalized = await self._adapter.search(
@@ -106,6 +118,7 @@ class SocialSignalService:
                 now,
                 "Bluesky public search is temporarily rate-limited. Try again later.",
                 area_name,
+                location_source,
             )
         except SocialSignalUnavailableError:
             return self._stale_or_empty(
@@ -115,6 +128,7 @@ class SocialSignalService:
                 now,
                 "Bluesky public search is temporarily unavailable.",
                 area_name,
+                location_source,
             )
 
         if selected_topics:
@@ -129,8 +143,9 @@ class SocialSignalService:
             half_life_hours=self._settings.social_signal_confidence_half_life_hours,
             now=now,
         )
+        area_qualifier = "catalog area" if location_source == "catalog_record" else "verified area"
         message = (
-            "No matching public posts were found for this verified area in the recent Bluesky search window. "
+            f"No matching public posts were found for this {area_qualifier} in the recent Bluesky search window. "
             "That does not establish that the area has no disruption."
             if not clusters
             else (
@@ -139,9 +154,12 @@ class SocialSignalService:
                 "per-post distance filter."
             )
         )
+        if location_source == "catalog_record":
+            message = f"Area name resolved from the itinerary's catalog location because reverse geocoding was unavailable. {message}"
         response = SocialSignalsResponse(
             status="AVAILABLE" if clusters else "NO_SIGNALS",
             queried_location=area_name,
+            location_source=location_source,
             radius_km=radius_km,
             generated_at=now,
             clusters=clusters,
@@ -176,6 +194,7 @@ class SocialSignalService:
         now: datetime,
         message: str,
         area_name: str | None = None,
+        location_source: str = "unavailable",
     ) -> SocialSignalsResponse:
         fallback = self._stale.get(key)
         if fallback is not None and now - fallback[0] <= timedelta(hours=2):
@@ -189,7 +208,7 @@ class SocialSignalService:
                     ),
                 }
             )
-        return self._empty(status, radius_km, now, message, area_name)
+        return self._empty(status, radius_km, now, message, area_name, location_source)
 
     def _remember_stale(self, key: str, response: SocialSignalsResponse, now: datetime) -> None:
         self._stale[key] = (now, response)
@@ -204,10 +223,12 @@ class SocialSignalService:
         now: datetime,
         message: str,
         area_name: str | None = None,
+        location_source: str = "unavailable",
     ) -> SocialSignalsResponse:
         return SocialSignalsResponse(
             status=status,
             queried_location=area_name,
+            location_source=location_source,
             radius_km=radius_km,
             generated_at=now,
             clusters=[],

@@ -8,7 +8,6 @@ import {
   Clock,
   Crosshair,
   MapPin,
-  MessageSquare,
   Route as RouteIcon,
   ShieldCheck,
   Star,
@@ -405,7 +404,9 @@ export function ExperienceDetail({ experience }: { experience: Experience }) {
                 <div className="grid gap-6 rounded-2xl bg-surface-raised/60 p-5 sm:grid-cols-[200px_minmax(0,1fr)] sm:items-center">
                   <div className="text-center sm:border-r sm:border-line sm:pr-6 sm:text-left">
                     <div className="text-4xl font-extrabold tracking-tight text-ink">
-                      {experience.ratingSummary.averageRating.toFixed(1)}
+                    {experience.ratingSummary.averageRating != null
+  ? experience.ratingSummary.averageRating.toFixed(1)
+  : "No ratings"}
                     </div>
                     <div className="mt-1 flex justify-center gap-1 sm:justify-start">
                       {[1, 2, 3, 4, 5].map((star) => (

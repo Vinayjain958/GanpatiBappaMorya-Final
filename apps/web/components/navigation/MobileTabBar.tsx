@@ -12,7 +12,7 @@ export function MobileTabBar() {
   const { user } = useAuth();
   const activeTripProgress = useActiveTripProgress(user?.id);
   const visibleNav = user?.role === "provider"
-    ? primaryNav.filter((item) => !["/trip", "/saved", "/collab"].includes(item.href))
+    ? primaryNav.filter((item) => !["/trip", "/saved", "/collab", "/showcase"].includes(item.href))
     : user?.role === "traveler"
       ? primaryNav.filter((item) => item.href !== "/provider")
       : primaryNav;

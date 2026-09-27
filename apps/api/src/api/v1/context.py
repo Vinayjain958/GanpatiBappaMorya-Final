@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, Query
 from src.adapters.errors import AdapterError
 from src.adapters.events import EventAdapter
 from src.adapters.weather import WeatherAdapter, WeatherContext, WeatherSource, unavailable_context
+from src.adapters.weather_scenarios import WeatherScenario, build_weather_scenario
 from src.core.config import Settings, get_settings
 from src.core.context import get_event_adapter, get_weather_adapter
 from src.core.deps import CurrentUser
@@ -52,13 +53,19 @@ async def get_weather_context(
     weather_adapter: Annotated[WeatherAdapter, Depends(get_weather_adapter)],
     lat: float = Query(..., ge=-90, le=90),
     lng: float = Query(..., ge=-180, le=180),
+    scenario: WeatherScenario | None = None,
 ) -> WeatherContextResponse:
-    try:
-        context = await weather_adapter.get_current(lat, lng)
-    except AdapterError:
-        # Return the stable normalized unavailable shape. Provider error
-        # details are deliberately not exposed in JSON or logs here.
-        context = unavailable_context(lat, lng)
+    if scenario is not None:
+        if settings.app_env != "development":
+            raise ApiError("Weather test scenarios are available only in development.", status_code=404)
+        context = build_weather_scenario(scenario, lat, lng)
+    else:
+        try:
+            context = await weather_adapter.get_current(lat, lng)
+        except AdapterError:
+            # Return the stable normalized unavailable shape. Provider error
+            # details are deliberately not exposed in JSON or logs here.
+            context = unavailable_context(lat, lng)
 
     status_label = _status_for(context)
 
@@ -88,17 +95,24 @@ async def get_weather_context(
 @router.get("/weather/forecast", response_model=list[WeatherForecastEntry])
 async def get_weather_forecast(
     _user: CurrentUser,
+    settings: Annotated[Settings, Depends(get_settings)],
     weather_adapter: Annotated[WeatherAdapter, Depends(get_weather_adapter)],
     lat: float = Query(..., ge=-90, le=90),
     lng: float = Query(..., ge=-180, le=180),
     max_entries: int = Query(default=8, ge=1, le=40),
+    scenario: WeatherScenario | None = None,
 ) -> list[WeatherForecastEntry]:
     """Return a bounded list of adapter-normalized forecast entries."""
-    try:
-        forecasts = await weather_adapter.get_forecast(lat, lng)
-    except AdapterError:
-        # Keep provider diagnostics and credentials out of client responses.
-        raise ApiError("Weather forecast is temporarily unavailable.", status_code=503) from None
+    if scenario is not None:
+        if settings.app_env != "development":
+            raise ApiError("Weather test scenarios are available only in development.", status_code=404)
+        forecasts = [build_weather_scenario(scenario, lat, lng)]
+    else:
+        try:
+            forecasts = await weather_adapter.get_forecast(lat, lng)
+        except AdapterError:
+            # Keep provider diagnostics and credentials out of client responses.
+            raise ApiError("Weather forecast is temporarily unavailable.", status_code=503) from None
 
     entries: list[WeatherForecastEntry] = []
     for context in forecasts[:max_entries]:

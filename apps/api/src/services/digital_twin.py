@@ -45,7 +45,13 @@ from src.schemas.digital_twin import (
     WeatherSuitability,
     WhatIfScenario,
 )
-from src.schemas.domain_intelligence import DomainIntelligenceInput
+from src.schemas.domain_intelligence import (
+    DomainIntelligenceImpact,
+    DomainIntelligenceInput,
+    DomainIntelligenceRoute,
+    DomainIntelligenceStop,
+    DomainIntelligenceWeather,
+)
 from src.schemas.feasibility import CommittedTimeBlock, TravelerConstraints
 from src.services.context_impact import ContextImpactResult, ImpactSeverity
 from src.services.discovery_pipeline import DiscoveryPipelineService
@@ -69,6 +75,8 @@ class _StopRef:
     locked: bool
     latitude: float | None
     longitude: float | None
+    locality: str | None
+    city: str | None
     experience: Experience | None
     raw_item: ItineraryItem | ItineraryCustomActivity
 
@@ -164,11 +172,18 @@ class DigitalTwinService:
             else:
                 try:
                     social_result = await self._social.get_social_signals(
-                        ref.latitude, ref.longitude, 10.0, None, min(scenario.horizon_hours, 24)
+                        ref.latitude,
+                        ref.longitude,
+                        10.0,
+                        None,
+                        min(scenario.horizon_hours, 24),
+                        fallback_locality=ref.locality,
+                        fallback_city=ref.city,
                     )
                     scenario_social = TwinSocialEvidence(
                         status=social_result.status,
                         queried_location=social_result.queried_location,
+                        location_source=social_result.location_source,
                         generated_at=social_result.generated_at,
                         clusters=[
                             TwinSocialCluster(
@@ -302,10 +317,64 @@ class DigitalTwinService:
         )
         facts = DomainIntelligenceInput(
             scenario_name=scenario.name,
+            scenario_description=scenario.description,
             impact_categories=[impact.category for impact in impacts if impact.affected],
             affected_item_ids=unique_affected,
             weather_statuses=weather_statuses,
             route_statuses=[route.scenario_status for route in scenario_routes],
+            stops=[
+                DomainIntelligenceStop(
+                    item_id=stop.item_id,
+                    title=stop.title,
+                    start=stop.planned_start.isoformat(),
+                    end=stop.planned_end.isoformat(),
+                    state=stop.state,
+                    locked=stop.locked,
+                    provider_verification_status=stop.provider_verification_status,
+                )
+                for stop in scenario_plan.stops[:20]
+            ],
+            weather=[
+                DomainIntelligenceWeather(
+                    item_id=weather.item_id,
+                    status=weather.status,
+                    condition=weather.condition,
+                    temperature_c=weather.temperature_c,
+                    precipitation_probability=weather.precipitation_probability,
+                    precipitation_amount=weather.precipitation_amount,
+                    wind_speed=weather.wind_speed,
+                    severe_alert=weather.severe_alert,
+                )
+                for weather in scenario_plan.weather[:20]
+            ],
+            routes=[
+                DomainIntelligenceRoute(
+                    from_item_id=route.from_item_id,
+                    to_item_id=route.to_item_id,
+                    source=route.source,
+                    duration_minutes=route.scenario_duration_minutes or route.duration_minutes,
+                    scenario_status=route.scenario_status,
+                    delta_minutes=route.delta_minutes,
+                    explanation=route.explanation,
+                )
+                for route in scenario_routes[:12]
+            ],
+            deterministic_impacts=[
+                DomainIntelligenceImpact(
+                    category=impact.category,
+                    level=impact.level,
+                    affected=impact.affected,
+                    item_id=impact.item_id,
+                    reason_codes=impact.reason_codes[:10],
+                    explanation=impact.explanation[:300],
+                )
+                for impact in impacts[:30]
+            ],
+            social_status=scenario_social.status,
+            social_topics=[cluster.topic for cluster in scenario_social.clusters[:20]],
+            itinerary_date=itinerary.itinerary_date.isoformat(),
+            timezone="Asia/Kolkata",
+            deterministic_summary=delta.summary,
         )
         intelligence_result = await self._intelligence.summarize(facts)
         warnings.extend(
@@ -348,6 +417,7 @@ class DigitalTwinService:
             impacts=impacts,
             alternatives=alternatives,
             warnings=warnings,
+            domain_intelligence=intelligence_result,
         )
         context_impact = ContextImpactResult(
             affected=bool(unique_affected),
@@ -404,6 +474,8 @@ class DigitalTwinService:
                     locked=item.is_locked,
                     latitude=location.latitude if location else None,
                     longitude=location.longitude if location else None,
+                    locality=location.locality if location else None,
+                    city=location.city if location else None,
                     experience=experience,
                     raw_item=item,
                 )
@@ -421,6 +493,8 @@ class DigitalTwinService:
                     locked=False,
                     latitude=activity.latitude,
                     longitude=activity.longitude,
+                    locality=None,
+                    city=None,
                     experience=None,
                     raw_item=activity,
                 )

@@ -18,7 +18,9 @@ class InteractionRepository:
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-    async def get_recent_for_traveler(self, traveler_id: str, event_types: list[str], limit: int = 100) -> list[TravelerInteraction]:
+    async def get_recent_for_traveler(
+        self, traveler_id: str, event_types: list[str], limit: int = 100
+    ) -> list[TravelerInteraction]:
         stmt = select(TravelerInteraction).where(
             TravelerInteraction.traveler_id == traveler_id,
             TravelerInteraction.event_type.in_(event_types)
@@ -57,7 +59,7 @@ class InteractionRepository:
             select(TravelerInteraction.experience_id, TravelerInteraction.event_type)
             .where(
                 TravelerInteraction.traveler_id == traveler_id,
-                TravelerInteraction.event_type.in__(("SAVE", "UNSAVE")),
+                TravelerInteraction.event_type.in_(("SAVE", "UNSAVE")),
             )
             .order_by(
                 func.coalesce(TravelerInteraction.occurred_at, TravelerInteraction.created_at).asc(),

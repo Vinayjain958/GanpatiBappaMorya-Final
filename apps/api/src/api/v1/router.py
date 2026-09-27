@@ -11,6 +11,7 @@ from src.api.v1 import (
     context,
     conversation,
     digital_twin,
+    domain_intelligence,
     experiences,
     feasibility,
     feedback,
@@ -44,3 +45,4 @@ api_v1_router.include_router(safety.router)
 api_v1_router.include_router(collab.router)
 api_v1_router.include_router(twin.router)
 api_v1_router.include_router(digital_twin.router)
+api_v1_router.include_router(domain_intelligence.router)

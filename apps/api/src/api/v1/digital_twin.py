@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.adapters.ai import AIAdapter
 from src.adapters.embedding import EmbeddingAdapter
+from src.adapters.errors import AdapterError
 from src.adapters.routing import RoutingAdapter
 from src.adapters.weather import WeatherAdapter
 from src.core.ai import get_ai_adapter
@@ -47,7 +48,7 @@ def _service(
         routing=routing,
         embedding=embedding,
         social=social,
-        intelligence=get_domain_intelligence_provider(),
+        intelligence=get_domain_intelligence_provider(settings),
     )
 
 
@@ -79,6 +80,10 @@ async def simulate_itinerary(
         raise ApiError("Itinerary not found", status_code=404) from exc
     except ValueError as exc:
         raise ApiError(str(exc), status_code=422) from exc
+    except AdapterError as exc:
+        raise ApiError(
+            "Domain intelligence is temporarily unavailable. Retry the preview later.", status_code=503
+        ) from exc
 
 
 @router.post("/simulations/{simulation_id}/apply", response_model=ReplanResponse)

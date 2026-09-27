@@ -9,6 +9,7 @@ export function getSocialSignals(
   topics?: string[],
   sinceHours = 24,
   signal?: AbortSignal,
+  itineraryItemId?: string,
 ) {
   const params = new URLSearchParams({
     lat: String(latitude),
@@ -17,6 +18,7 @@ export function getSocialSignals(
     since_hours: String(sinceHours),
   });
   if (topics?.length) params.set("topics", topics.join(","));
+  if (itineraryItemId) params.set("itinerary_item_id", itineraryItemId);
   return apiClient.get<SocialSignalsResponse>(
     `/api/v1/twin/social-signals?${params.toString()}`,
     { signal },

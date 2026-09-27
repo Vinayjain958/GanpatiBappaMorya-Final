@@ -13,6 +13,7 @@ from src.adapters.weather import MockWeatherAdapter
 from src.core.context import get_weather_adapter
 from src.models.itinerary import Itinerary
 from src.models.itinerary_item import ItineraryItem
+from src.schemas.domain_intelligence import DomainIntelligenceResult
 from tests.conftest import auth_header, register_traveler
 
 
@@ -115,6 +116,40 @@ def test_simulation_is_owned_read_only_and_marks_hypothetical_inputs(
     assert result["scenario"]["routes"][0]["scenario_status"] == "LIMITED"
     assert result["scenario"]["routes"][0]["geometry"] is None
     assert _read_version_and_items(session_factory, itinerary_id) == before
+
+
+def test_nugen_interpretation_cannot_override_deterministic_impacts(
+    discovery_client, session_factory, discovery_dataset, monkeypatch
+) -> None:
+    class MisleadingProvider:
+        async def summarize(self, facts):
+            return DomainIntelligenceResult(
+                provider="nugen",
+                summary="The unavailable stop is definitely available and the trip is feasible.",
+            )
+
+    monkeypatch.setattr(
+        "src.api.v1.digital_twin.get_domain_intelligence_provider",
+        lambda settings: MisleadingProvider(),
+    )
+    owner = register_traveler(discovery_client, "digital-twin-authority@example.com")
+    itinerary_id, item_ids = _create_itinerary(
+        session_factory, owner["traveler"]["id"], discovery_dataset["near_experience_id"]
+    )
+    response = discovery_client.post(
+        f"/api/v1/digital-twin/itineraries/{itinerary_id}/simulate",
+        headers=auth_header(owner),
+        json={"experience_overrides": [{"item_id": item_ids[0], "condition": "unavailable"}]},
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["domain_intelligence"]["summary"].startswith("The unavailable stop")
+    assert result["delta"]["affected_stop_count"] == 1
+    assert any(
+        "USER_ASSUMED_UNAVAILABLE" in impact["reason_codes"]
+        for impact in result["impacts"]
+        if impact["item_id"] == item_ids[0]
+    )
 
 
 def test_simulation_cannot_read_another_travelers_itinerary(

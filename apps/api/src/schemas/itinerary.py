@@ -205,6 +205,8 @@ class ItineraryItemResponse(BaseModel):
     short_description: str | None = None
     category_name: str | None = None
     location_place_name: str | None = None
+    location_locality: str | None = None
+    location_city: str | None = None
     location_latitude: float | None = None
     location_longitude: float | None = None
     opening_hours_status_at_visit: Literal["open", "closed", "unknown"] = "unknown"

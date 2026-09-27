@@ -24,7 +24,7 @@ within the same process.
 """
 
 from __future__ import annotations
-
+from sqlalchemy.orm import selectinload
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable

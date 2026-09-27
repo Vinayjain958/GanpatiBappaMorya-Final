@@ -6,10 +6,12 @@ availability are never changed.
 
 Run from apps/api:
     python scripts/seed_demo_opening_hours.py
+    python scripts/seed_demo_opening_hours.py --experience-id <id> [--experience-id <id> ...]
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import sys
 from datetime import date, datetime, time, timedelta
@@ -78,8 +80,12 @@ def _demo_availability(
     return slots
 
 
-async def seed_demo_hours(session: AsyncSession) -> tuple[int, int, int, int]:
-    result = await session.execute(
+async def seed_demo_hours(
+    session: AsyncSession,
+    *,
+    experience_ids: set[str] | None = None,
+) -> tuple[int, int, int, int]:
+    query = (
         select(Experience)
         .options(
             selectinload(Experience.category),
@@ -89,6 +95,9 @@ async def seed_demo_hours(session: AsyncSession) -> tuple[int, int, int, int]:
         )
         .order_by(Experience.id.asc())
     )
+    if experience_ids is not None:
+        query = query.where(Experience.id.in_(experience_ids))
+    result = await session.execute(query)
     experiences = list(result.scalars().unique().all())
     added_experiences = 0
     added_windows = 0
@@ -132,8 +141,20 @@ async def seed_demo_hours(session: AsyncSession) -> tuple[int, int, int, int]:
 
 
 async def main() -> None:
+    parser = argparse.ArgumentParser(description="Add clearly labeled demo hours and availability to missing experiences.")
+    parser.add_argument(
+        "--experience-id",
+        action="append",
+        dest="experience_ids",
+        help="Limit this idempotent backfill to a catalog experience; may be repeated.",
+    )
+    args = parser.parse_args()
+
     async with async_session_factory() as session:
-        experiences, windows, availability_experiences, availability_slots = await seed_demo_hours(session)
+        experiences, windows, availability_experiences, availability_slots = await seed_demo_hours(
+            session,
+            experience_ids=set(args.experience_ids) if args.experience_ids else None,
+        )
     print("DEMO SCHEDULE — illustrative hours and availability; not venue-confirmed")
     print(f"Experiences enriched: {experiences}")
     print(f"Weekly hours rows added: {windows}")

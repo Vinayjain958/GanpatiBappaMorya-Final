@@ -56,6 +56,7 @@ export interface TwinWeatherEvidence {
 export interface TwinSocialEvidence {
   status: "NOT_REQUESTED" | "AVAILABLE" | "NO_SIGNALS" | "UNAVAILABLE" | "RATE_LIMITED" | "STALE" | "HYPOTHETICAL";
   queried_location: string | null;
+  location_source?: "reverse_geocoder" | "catalog_record" | "unavailable" | null;
   generated_at: string | null;
   clusters: {
     topic: string;
@@ -160,6 +161,22 @@ export interface SimulationResult {
     is_synthetic: boolean;
   }[];
   warnings: string[];
+  domain_intelligence: {
+    provider: "mock" | "nugen";
+    summary: string;
+    notes: string[];
+    impacts: string[];
+    suitability_assessment: string | null;
+    disruption_assessment: string | null;
+    recommendation: string | null;
+    uncertainty: string | null;
+    reason_codes: string[];
+    model_id: string | null;
+    usage: Record<string, number | string> | null;
+    confidence_score: number | null;
+    finish_reason: string | null;
+    confidence: "LOW" | "MEDIUM" | "HIGH";
+  } | null;
   simulation_confidence_note: string;
 }
 

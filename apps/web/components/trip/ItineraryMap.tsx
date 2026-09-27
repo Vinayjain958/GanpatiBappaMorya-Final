@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CloudSun, Download, LocateFixed, MapPin, MapPinned, MessageCircle, Route, Search, X } from "lucide-react";
+import { CloudSun, Download, LocateFixed, MapPin, MapPinned, MessageCircle, RefreshCw, Route, Search, X } from "lucide-react";
 import { MapSurface } from "@/components/common/MapSurface";
 import { WeatherCard } from "@/components/context/WeatherCard";
 import { Button } from "@/components/ui/Button";
@@ -20,6 +20,10 @@ interface ItineraryMapProps {
   selectedItemId: string | null;
   onSelectItem: (id: string) => void;
   scenarioAffectedItemIds?: string[];
+  showWeatherCard?: boolean;
+  initialSocialVisible?: boolean;
+  socialHeading?: string;
+  useOwnedStopContext?: boolean;
 }
 
 interface RouteState {
@@ -168,7 +172,7 @@ function mapBoundsFromStops(stops: MapStop[], segments: MapRouteSegment[]) {
   );
 }
 
-export function ItineraryMap({ itinerary, selectedItemId, onSelectItem, scenarioAffectedItemIds = [] }: ItineraryMapProps) {
+export function ItineraryMap({ itinerary, selectedItemId, onSelectItem, scenarioAffectedItemIds = [], showWeatherCard = true, initialSocialVisible = false, socialHeading, useOwnedStopContext = false }: ItineraryMapProps) {
   const stops = useMemo(() => buildItineraryMapStops(itinerary), [itinerary]);
   const routeLegs = useMemo(() => buildConsecutiveRouteLegs(itinerary), [itinerary]);
   const entries = useMemo(() => orderedTimelineEntries(itinerary), [itinerary]);
@@ -192,9 +196,10 @@ export function ItineraryMap({ itinerary, selectedItemId, onSelectItem, scenario
   const [focusRequestId, setFocusRequestId] = useState(0);
   const [nearbyVisible, setNearbyVisible] = useState(false);
   const [nearbyState, setNearbyState] = useState<NearbyState | null>(null);
-  const [socialVisible, setSocialVisible] = useState(false);
+  const [socialVisible, setSocialVisible] = useState(initialSocialVisible);
   const [socialTopicFilter, setSocialTopicFilter] = useState<SocialSignalTopic | "all">("all");
   const [socialSinceHours, setSocialSinceHours] = useState(24);
+  const [socialRefreshKey, setSocialRefreshKey] = useState(0);
   const [socialSeverityFilter, setSocialSeverityFilter] = useState<"all" | "moderate" | "high">("all");
   const [socialState, setSocialState] = useState<SocialState | null>(null);
   const routeCacheRef = useRef(new Map<string, MapRouteSegment | null>());
@@ -218,8 +223,9 @@ export function ItineraryMap({ itinerary, selectedItemId, onSelectItem, scenario
   const selectedLatitude = selectedStop?.latitude ?? null;
   const selectedLongitude = selectedStop?.longitude ?? null;
   const nearbyResults = nearbyState?.key === nearbyKey ? nearbyState.items : EMPTY_NEARBY;
-  const socialRequestKey = `${socialKey}:${socialTopicFilter}:${socialSinceHours}`;
+  const socialRequestKey = `${socialKey}:${socialTopicFilter}:${socialSinceHours}:${socialRefreshKey}`;
   const socialResponse = socialState?.key === socialRequestKey ? socialState.response : null;
+  const socialLoading = Boolean(socialVisible && socialKey && (socialState?.key !== socialRequestKey || socialState.loading));
   const visibleSocialClusters = useMemo(() => {
     const minimumSeverity = socialSeverityFilter === "high" ? 2 : socialSeverityFilter === "moderate" ? 1 : 0;
     const severityRank = { low: 0, moderate: 1, high: 2 };
@@ -321,7 +327,10 @@ export function ItineraryMap({ itinerary, selectedItemId, onSelectItem, scenario
     socialControllerRef.current?.abort();
     socialControllerRef.current = controller;
     const topics = socialTopicFilter === "all" ? undefined : [socialTopicFilter];
-    void getSocialSignals(selectedLatitude, selectedLongitude, 10, topics, socialSinceHours, controller.signal)
+    const request = useOwnedStopContext && selectedStop?.kind === "experience"
+      ? getSocialSignals(selectedLatitude, selectedLongitude, 10, topics, socialSinceHours, controller.signal, selectedStop.id)
+      : getSocialSignals(selectedLatitude, selectedLongitude, 10, topics, socialSinceHours, controller.signal);
+    void request
       .then((response) => {
         if (!controller.signal.aborted) setSocialState({ key: socialRequestKey, loading: false, response, error: false });
       })
@@ -329,7 +338,7 @@ export function ItineraryMap({ itinerary, selectedItemId, onSelectItem, scenario
         if (!controller.signal.aborted) setSocialState({ key: socialRequestKey, loading: false, response: null, error: true });
       });
     return () => controller.abort();
-  }, [socialVisible, socialKey, socialRequestKey, selectedLatitude, selectedLongitude, socialTopicFilter, socialSinceHours]);
+  }, [socialVisible, socialKey, socialRequestKey, selectedLatitude, selectedLongitude, selectedStop?.id, selectedStop?.kind, socialTopicFilter, socialSinceHours, useOwnedStopContext]);
 
   function handleExploreNearby() {
     if (!selectedStop || !nearbyKey) return;
@@ -402,9 +411,9 @@ export function ItineraryMap({ itinerary, selectedItemId, onSelectItem, scenario
           <Button type="button" size="sm" variant={routeVisible ? "secondary" : "outline"} onClick={() => setRouteVisible((visible) => !visible)} disabled={!routeLegs.length} aria-pressed={routeVisible}>
             <Route className="size-4" aria-hidden="true" />{routeVisible ? "Hide route" : "Show route"}
           </Button>
-          <Button type="button" size="sm" variant={weatherVisible ? "secondary" : "outline"} onClick={() => setWeatherVisible((visible) => !visible)} aria-pressed={weatherVisible}>
+          {showWeatherCard ? <Button type="button" size="sm" variant={weatherVisible ? "secondary" : "outline"} onClick={() => setWeatherVisible((visible) => !visible)} aria-pressed={weatherVisible}>
             <CloudSun className="size-4" aria-hidden="true" />Weather
-          </Button>
+          </Button> : null}
           <Button id="trip-social-toggle" type="button" size="sm" variant={socialVisible ? "secondary" : "outline"} onClick={() => setSocialVisible((visible) => !visible)} disabled={!selectedStop} aria-pressed={socialVisible}>
             <MessageCircle className="size-4" aria-hidden="true" />{socialVisible ? "Hide social pulse" : "Social pulse"}
           </Button>
@@ -491,14 +500,15 @@ export function ItineraryMap({ itinerary, selectedItemId, onSelectItem, scenario
       </details>
 
       {socialVisible ? (
-        <section className="rounded-2xl border border-line bg-surface p-4" aria-label="Public social signal context" aria-live="polite">
+        <section id="trip-social-context" className="scroll-mt-6 rounded-2xl border border-line bg-surface p-4" aria-label="Public social signal context" aria-live="polite">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-ink">Public social signal · {socialResponse?.queried_location ?? selectedStop?.title}</h3>
+              <h3 className="text-sm font-semibold text-ink">{socialHeading ?? "Public social signal"} · {socialResponse?.queried_location ?? selectedStop?.title}</h3>
               <p className="mt-1 text-xs text-ink-muted">Aggregated public area mentions. They are unverified context, not a confirmed incident report.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {socialResponse ? <span className="rounded-full bg-surface-sunken px-2.5 py-1 text-xs font-medium text-ink-muted">{socialResponse.status.replaceAll("_", " ")}</span> : null}
+              {socialResponse ? <span className="rounded-full bg-surface-sunken px-2.5 py-1 text-xs font-medium text-ink-muted">{socialResponse.status.replaceAll("_", " ")}{socialResponse.location_source === "catalog_record" ? " · catalog area" : ""}</span> : null}
+              {socialVisible ? <Button type="button" size="sm" variant="outline" onClick={() => setSocialRefreshKey((key) => key + 1)} disabled={socialLoading} aria-label="Retry public social signals"><RefreshCw className="size-4" aria-hidden="true" />Refresh signals</Button> : null}
               {socialResponse ? (
                 <Button
                   type="button"
@@ -533,9 +543,10 @@ export function ItineraryMap({ itinerary, selectedItemId, onSelectItem, scenario
               </select>
             </label>
           </div>
-          {socialVisible && socialKey && (socialState?.key !== socialRequestKey || socialState.loading) ? <p className="mt-3 text-sm text-ink-muted" role="status">Checking public area mentions…</p> : null}
+          {socialLoading ? <p className="mt-3 text-sm text-ink-muted" role="status">Checking public area mentions…</p> : null}
           {socialState?.key === socialRequestKey && socialState.error ? <p className="mt-3 text-sm text-ink-muted" role="status">Public social context is unavailable right now. The trip map, weather, and itinerary remain usable.</p> : null}
           {socialResponse ? <p className="mt-3 text-sm text-ink-muted" role="status">{socialResponse.message}</p> : null}
+          {socialResponse?.location_source === "catalog_record" ? <p className="mt-1 text-xs text-ink-subtle">Area label comes from the selected saved experience’s backend location record; individual public posts are not geolocated.</p> : null}
           {socialResponse ? <p className="mt-1 text-xs text-ink-subtle">Search radius {socialResponse.radius_km} km · Generated {socialResponse.generated_at ? updatedAge(socialResponse.generated_at) : "time unavailable"}</p> : null}
           {socialResponse?.clusters.length && visibleSocialClusters.length === 0 ? <p className="mt-2 text-sm text-ink-muted">No returned clusters match this severity filter.</p> : null}
           {visibleSocialClusters.length ? (
@@ -577,7 +588,7 @@ export function ItineraryMap({ itinerary, selectedItemId, onSelectItem, scenario
         </section>
       ) : null}
 
-      {weatherVisible ? (
+      {showWeatherCard && weatherVisible ? (
         <WeatherCard
           latitude={selectedWeatherLatitude}
           longitude={selectedWeatherLongitude}

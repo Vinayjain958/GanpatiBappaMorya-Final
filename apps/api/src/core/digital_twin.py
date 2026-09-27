@@ -6,9 +6,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from threading import RLock
 
-from src.adapters.domain_intelligence import MockDomainIntelligenceProvider
+from src.adapters.domain_intelligence import DomainIntelligenceProvider, MockDomainIntelligenceProvider
+from src.core.config import Settings, get_settings
+from src.integrations.nugen.client import NugenClient
 from src.schemas.digital_twin import SimulationResult, WhatIfScenario
 from src.services.context_impact import ContextImpactResult
+from src.services.nugen_domain_intelligence import NugenDomainIntelligenceService
 
 MAX_SIMULATION_SESSIONS = 256
 SIMULATION_TTL = timedelta(minutes=15)
@@ -60,8 +63,11 @@ simulation_session_store = SimulationSessionStore()
 _mock_domain_intelligence = MockDomainIntelligenceProvider()
 
 
-def get_domain_intelligence_provider() -> MockDomainIntelligenceProvider:
-    """Default Task 4 implementation; future providers plug in at this boundary."""
+def get_domain_intelligence_provider(settings: Settings | None = None) -> DomainIntelligenceProvider:
+    """Choose Nugen only when its server-side credential is configured."""
+    active_settings = settings or get_settings()
+    if active_settings.nugen_enabled:
+        return NugenDomainIntelligenceService(NugenClient(active_settings))
     return _mock_domain_intelligence
 
 

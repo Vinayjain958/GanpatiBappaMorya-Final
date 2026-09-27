@@ -29,6 +29,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.adapters.errors import AdapterError
 from src.adapters.routing import RoutingAdapter
 from src.adapters.weather import WeatherAdapter
 from src.core.category_map import CATEGORY_SLUGS
@@ -470,7 +471,7 @@ async def execute_simulate_what_if(
         routing=routing_adapter,
         embedding=embedding_adapter,
         social=social_service,
-        intelligence=get_domain_intelligence_provider(),
+        intelligence=get_domain_intelligence_provider(settings),
     )
     try:
         result = await service.simulate(
@@ -482,6 +483,10 @@ async def execute_simulate_what_if(
         raise ApiError("Itinerary not found", status_code=404) from exc
     except ValueError as exc:
         raise ApiError(str(exc), status_code=422) from exc
+    except AdapterError as exc:
+        raise ApiError(
+            "Domain intelligence is temporarily unavailable. Retry the preview later.", status_code=503
+        ) from exc
     return result.model_dump(mode="json")
 
 

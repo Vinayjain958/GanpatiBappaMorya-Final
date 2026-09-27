@@ -60,6 +60,7 @@ async def record_interaction(
         rank_position=payload.rank_position,
         recommendation_session_id=payload.recommendation_session_id,
         source=payload.source,
+        occurred_at=payload.occurred_at,
     )
     
     # Update Affinities

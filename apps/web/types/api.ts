@@ -517,6 +517,8 @@ export interface ApiItineraryItem {
   short_description: string | null;
   category_name: string | null;
   location_place_name: string | null;
+  location_locality?: string | null;
+  location_city?: string | null;
   location_latitude: number | null;
   location_longitude: number | null;
   opening_hours_status_at_visit?: "open" | "closed" | "unknown";
@@ -691,6 +693,7 @@ export interface ReplanResponse {
 
 export type ContextStatus = "LIVE" | "CACHED" | "STALE" | "UNAVAILABLE" | "MOCK";
 export type WeatherSource = "LIVE" | "CACHED" | "MOCK" | "UNAVAILABLE";
+export type WeatherTestScenario = "SCENARIO_CLEAR" | "SCENARIO_RAIN" | "SCENARIO_STORM" | "SCENARIO_HEAT";
 
 export interface WeatherContextResponse {
   latitude: number;

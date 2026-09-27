@@ -11,6 +11,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.schemas.domain_intelligence import DomainIntelligenceResult
+
 ScenarioWeatherIntensity = Literal[
     "clear",
     "light_rain",
@@ -148,6 +150,7 @@ class TwinSocialEvidence(BaseModel):
 
     status: Literal["NOT_REQUESTED", "AVAILABLE", "NO_SIGNALS", "UNAVAILABLE", "RATE_LIMITED", "STALE", "HYPOTHETICAL"]
     queried_location: str | None = None
+    location_source: Literal["reverse_geocoder", "catalog_record", "unavailable"] | None = None
     generated_at: datetime | None = None
     clusters: list[TwinSocialCluster] = Field(default_factory=list)
     message: str | None = None
@@ -243,6 +246,7 @@ class SimulationResult(BaseModel):
     impacts: list[SimulationImpact] = Field(default_factory=list)
     alternatives: list[SimulationAlternative] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    domain_intelligence: DomainIntelligenceResult | None = None
     simulation_confidence_note: str = "Evidence-completeness label, not a calibrated probability."
 
 
