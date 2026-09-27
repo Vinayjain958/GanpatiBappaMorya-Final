@@ -1,0 +1,36 @@
+services:
+  # Backend API
+  - type: web
+    name: localens-api
+    env: docker
+    region: oregon
+    plan: free
+    dockerContext: ./apps/api
+    dockerfilePath: ./apps/api/Dockerfile
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_ENABLED
+        value: "true"
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: TICKETMASTER_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false # Set to Vercel frontend URL in production
+
+  # Frontend (For reference - Render supports static/NextJS, but Vercel is the primary target)
+  - type: web
+    name: localens-web
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd apps/web && npm install && npm run build
+    startCommand: cd apps/web && npm run start
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false # Set to Render API URL

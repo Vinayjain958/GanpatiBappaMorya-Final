@@ -1,0 +1,13 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.ruff_cache
+.mypy_cache
+server_debug.log
+server_debug*.log
+localens_dev.db
+.env
+.env.*

@@ -1,0 +1,106 @@
+# ==============================================================================
+# LocaLens — .gitignore
+# ==============================================================================
+
+# ─── Environment & Secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ─── Claude Code local worktrees/scratch ──────────────────────────────────────
+.claude/
+
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+ENV/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+*.log
+
+# ─── Node / JavaScript / TypeScript ──────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.npm/
+.yarn/
+
+# ─── Next.js ──────────────────────────────────────────────────────────────────
+apps/web/.next/
+apps/web/out/
+apps/web/.turbo/
+
+# ─── Build Outputs ────────────────────────────────────────────────────────────
+dist/
+*.tsbuildinfo
+.cache/
+
+# ─── Database ─────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# ─── IDE ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+ehthumbs.db
+
+# ─── Alembic ──────────────────────────────────────────────────────────────────
+# Keep migration files; ignore only temporary artefacts
+apps/api/alembic/__pycache__/
+
+# ─── Testing / Coverage ───────────────────────────────────────────────────────
+.pytest_cache/
+coverage/
+*.lcov
+test-results/
+
+# ─── Misc ─────────────────────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+tmp/
+temp/
+
+# ─── Data pipeline ────────────────────────────────────────────────────────────
+# Raw ingested snapshots can be large and are reproducible from
+# scripts/ingest_overture.py — never commit them. Processed/curated
+# output (data/processed/) is small and IS committed for reproducibility.
+data/raw/*
+!data/raw/.gitkeep

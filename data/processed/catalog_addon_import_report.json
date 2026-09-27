@@ -1,0 +1,35 @@
+{
+  "schema": "localens.overture-catalog-import.v1",
+  "recorded_at": "2026-09-27T11:06:15+05:30",
+  "source_snapshot": "data/processed/overture_catalog_addon.json",
+  "snapshot_records": 14875,
+  "import": {
+    "mode": "additive",
+    "existing_snapshot_records": 288,
+    "inserted_records": 14587,
+    "second_dry_run_new_records": 0,
+    "existing_rows_updated": 0,
+    "existing_rows_deleted": 0
+  },
+  "database_after": {
+    "integrity": "ok",
+    "experiences_total": 14940,
+    "overture_experiences": 14875,
+    "synthetic_experiences": 65,
+    "opening_hours_total": 2421,
+    "opening_hours_synthetic": 2421,
+    "availability_total": 20651,
+    "availability_synthetic": 20651
+  },
+  "database_before": {
+    "integrity": "ok",
+    "experiences_total": 353,
+    "overture_experiences": 288,
+    "synthetic_experiences": 65,
+    "opening_hours_total": 2421,
+    "opening_hours_synthetic": 2421,
+    "availability_total": 20651,
+    "availability_synthetic": 20651
+  },
+  "backup_path": "apps/api/localens_dev.db.before_catalog_import_20260927_105349.bak"
+}

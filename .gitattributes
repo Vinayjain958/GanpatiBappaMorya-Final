@@ -1,0 +1,16 @@
+# LocaLens — Git line ending normalization
+# Normalize line endings on checkout to LF across all platforms
+
+* text=auto eol=lf
+
+# Force binary for assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

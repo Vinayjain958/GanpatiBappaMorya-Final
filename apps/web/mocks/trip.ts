@@ -1,0 +1,52 @@
+import type { Trip } from "@/types/trip";
+
+/** DEMO / MOCK DATA — presentation only. See mocks/experiences.ts for labelling rationale. */
+export const mockTrip: Trip = {
+  id: "trip-fort-afternoon",
+  title: "Fort Afternoon Plan",
+  contextSummary: "3 hours · Fort · ₹1500 · 3 people",
+  date: "Today",
+  totalTimeMinutes: 180,
+  totalTravelMinutes: 25,
+  totalCostInr: 1450,
+  preferencesMatched: ["Local food", "Cultural", "Walkable"],
+  items: [
+    {
+      id: "item-1",
+      title: "Kala Ghoda Street Food Trail",
+      category: "Food",
+      time: "09:30",
+      durationMinutes: 60,
+      location: "Kala Ghoda",
+      provider: "Mumbai Foodie Collective",
+      travelMinutesFromPrevious: 0,
+      costInr: 700,
+      status: "confirmed",
+    },
+    {
+      id: "item-2",
+      title: "Fort Heritage Walking Trail",
+      category: "Culture",
+      time: "10:45",
+      durationMinutes: 90,
+      location: "Fort",
+      provider: "Bombay Heritage Trails",
+      travelMinutesFromPrevious: 15,
+      costInr: 450,
+      status: "confirmed",
+    },
+    {
+      id: "item-3",
+      title: "Independent Bookstore Crawl",
+      category: "Culture",
+      time: "12:30",
+      durationMinutes: 45,
+      location: "Fort",
+      provider: "Fort Neighbourhood Collective",
+      travelMinutesFromPrevious: 10,
+      costInr: 0,
+      status: "pending",
+    },
+  ],
+  isSynthetic: true,
+};

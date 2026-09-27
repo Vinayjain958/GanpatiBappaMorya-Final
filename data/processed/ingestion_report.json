@@ -1,0 +1,39 @@
+{
+  "overture_release": "2026-08-19.0",
+  "bbox": {
+    "min_lon": 72.75,
+    "max_lon": 72.98,
+    "min_lat": 18.87,
+    "max_lat": 19.22
+  },
+  "queried_at": "2026-09-21T20:51:56.409597+00:00",
+  "raw_candidate_count": 1557,
+  "rejected_invalid_geometry": 0,
+  "rejected_bad_name": 0,
+  "rejected_unmapped_category": 0,
+  "rejected_permanently_closed": 0,
+  "rejected_duplicate_source_id": 0,
+  "rejected_duplicate_name_proximity": 0,
+  "rejected_over_category_cap": 1269,
+  "accepted_count": 288,
+  "accepted_by_category": {
+    "adventure": 16,
+    "family": 16,
+    "art-galleries": 16,
+    "workshops": 16,
+    "crafts": 16,
+    "entertainment": 16,
+    "cafes": 16,
+    "nightlife": 16,
+    "outdoors": 16,
+    "shopping-markets": 16,
+    "local-experiences": 16,
+    "museums": 16,
+    "culture-heritage": 16,
+    "community": 16,
+    "photography": 16,
+    "food-drink": 16,
+    "wellness": 16,
+    "music": 16
+  }
+}
